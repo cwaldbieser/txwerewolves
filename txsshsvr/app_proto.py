@@ -1,20 +1,38 @@
 
-
+from __future__ import (
+    absolute_import,
+    print_function,
+)
+from txsshsvr import (
+    lobby,
+    users,
+)
+import attr
 from twisted.conch.recvline import HistoricRecvLine
 from twisted.python import log
 from textwrap import dedent
 
 def makeSSHApplicationProtocol(avatar, *a, **k):
     proto = SSHApplicationProtocol()
+    proto.avatar = avatar
     return proto
 
 
-class SSHApplicationProtocol(HistoricRecvLine):
+@attr.attrs
+class Group(object):
+    name = attr.attrib()
+    owner = attr.attrib()
+    members = attr.Factory(list)
 
+
+
+class SSHApplicationProtocol(HistoricRecvLine):
+    avatar = None
     prompt = "$"
     CTRL_D = '\x04'
 
     def connectionMade(self):
+        users.add_avatar(self.avatar.user_id, self.avatar)
         HistoricRecvLine.connectionMade(self)
         self.keyHandlers.update({
             self.CTRL_D: lambda: self.terminal.loseConnection()})
@@ -22,7 +40,15 @@ class SSHApplicationProtocol(HistoricRecvLine):
             self.handler.onConnect(self)
         except AttributeError:
             pass
-        self.showPrompt()
+        self._protocol_stack = []
+        protocol = lobby.SSHLobbyProtocol(self.terminal)
+        self._protocol = protocol
+        protocol.avatar = self.avatar
+        protocol.initialize()
+
+    def connectionLost(self, reason):
+        avatar = self.avatar
+        users.remove_avatar(avatar.user_id, avatar)
 
     def showPrompt(self):
         self.terminal.write("{0} ".format(self.prompt))
@@ -32,9 +58,6 @@ class SSHApplicationProtocol(HistoricRecvLine):
 
     def lineReceived(self, line):
         line = line.strip()
-        self.terminal.write("You said: {}".format(line))
-        self.terminal.nextLine()
-        self.showPrompt()
-
+        self._protocol.handle_line(line)
 
 

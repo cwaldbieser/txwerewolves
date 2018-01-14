@@ -3,6 +3,7 @@ from __future__ import (
     absolute_import,
     print_function,
 )
+import uuid
 from txsshsvr.app_proto import makeSSHApplicationProtocol
 from twisted.cred.portal import IRealm
 from twisted.conch.avatar import ConchUser
@@ -13,13 +14,22 @@ from zope.interface import implements
 
 
 class SSHAvatar(ConchUser):
+    """
+    An instance of this class is created after authentication to connect the
+    user to the application protocol the underlying service provides.
+
+    The crux of this is accomplished by connecting the ends of an application
+    protocol instance (:py:class:`app_proto.SSHApplicationProtocol`) and 
+    the underlying SSH session protocol.
+    """
     implements(ISession)
     protocolFactory = makeSSHApplicationProtocol
 
-    def __init__(self, avatarId):
+    def __init__(self, user_id):
         assert self.protocolFactory is not None, "`protocolFactory` is None!"
         ConchUser.__init__(self)
-        self.avatarId = avatarId
+        self.user_id = user_id
+        self.avatar_id = uuid.uuid4().hex
         self.channelLookup.update({'session': SSHSession})
 
     def openShell(self, protocol):

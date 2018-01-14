@@ -27,6 +27,41 @@ class SSHService(Service):
     key_db_path = 'users/user_keys.json'
 
     def startService(self):
+        """
+        This is the main entry point into the service when it
+        starts.  Multiple components need to be created and
+        assembled to create the final service.  It helps to
+        look at the process in reverse.
+
+        An endpoint (`ep`) is created that listens on a port.  When a
+        connection is received, it uses a protocol `factory` to create
+        a new SSH protocol instance.
+
+        The factory is configure with a portal that will be used to
+        authenticate users and create avatars for them at the service.
+
+        The factory portal registered a :py:class:`SSHPublicKeychecker`
+        instance so that users can authenticate using SSH public/private
+        key pairs.  The allowed public keys and the matching users are
+        configured in a JSON file that the service reads on start up.
+
+        The protocol factory (:py:class:`twisted.conch.ssh.factory.SSHFactory`)
+        is indirectly responsible for calling the `login` method on its portal.
+        When the "ssh-userauth" service of the SSH protocol is requested, the
+        factory creates an instance of 
+        :py:class:`twisted.conch.ssh.userauth.SSHUserAuthServer` to create a
+        public key credential and pass it to the portal's `login` method.  It
+        is at this point the public key checker can authenticate the credential.
+
+        The portal was also configured with `self.realm` which happens to be
+        an instance of :py:class:`auth.SSHRealm`.  This real creates an avatar
+        instance which will represent the user on the service side of the
+        connection.
+
+        The avatar created will be an instance of :py:class:`auth.SSHAvatar`.
+        This avatar is responsible for connecting the user to the service
+        application logic.
+        """
         assert self.realm is not None, "`realm` must not be None!"
         with open(self.servicePrivateKey) as privateBlobFile:
             privateBlob = privateBlobFile.read()
