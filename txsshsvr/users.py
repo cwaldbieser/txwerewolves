@@ -7,32 +7,8 @@ _user_registry = {}
 @attr.attrs
 class UserRegistryEntry(object):
     user_id = attr.attrib()
-    avatars = attr.attrib(default=attr.Factory(dict))
-
-def add_avatar(user_id, avatar):
-    """
-    Add an avatar to the user registry.
-    """
-    global _user_registry
-    avatar_id = avatar.avatar_id
-    entry = _user_registry.get(user_id, None)
-    if entry is None:
-        entry = UserRegistryEntry(user_id=user_id)
-        _user_registry[user_id] = entry
-    entry.avatars[avatar_id] = avatar
-
-def remove_avatar(user_id, avatar):
-    """
-    Remove an avatar from the user registry.
-    """
-    global _user_registry
-    avatar_id = avatar.avatar_id
-    entry = _user_registry.get(user_id, None)
-    if entry is None:
-        return
-    del entry.avatars[avatar_id]
-    if len(entry.avatars) == 0:
-        del _user_registry[user_id]
+    avatar = attr.attrib(default=None)
+    app_protocol = attr.attrib(default=None)
 
 def get_user_ids():
     """
@@ -43,16 +19,23 @@ def get_user_ids():
     users.sort()
     return users
 
-def get_avatars_for_user(user_id):
+def register_user(user_id):
     """
-    Return all avatars for the user_id.
+    Register a user record.
     """
     global _user_registry
-    entry = _user_registry.get(user_id, None)
-    if entry:
-        return entry.avatars.values() 
-    else:
-        return []
+    entry =  _user_registry.get(user_id, None)
+    if entry is not None:
+        return entry
+    entry = UserRegistryEntry(user_id)
+    _user_registry[user_id] = entry
+    return entry
 
-
+def get_user_entry(user_id):
+    """
+    Get a registered user entry.
+    Return None if entry does not exist.
+    """
+    global _user_registry
+    return _user_registry.get(user_id, None)
 

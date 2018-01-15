@@ -7,33 +7,21 @@ from txsshsvr import (
     lobby,
     users,
 )
-import attr
 from twisted.conch.recvline import HistoricRecvLine
 from twisted.python import log
 from textwrap import dedent
 
-def makeSSHApplicationProtocol(avatar, *a, **k):
+def makeSSHApplicationProtocol(user_id):
     proto = SSHApplicationProtocol()
-    proto.avatar = avatar
+    proto.user_id = user_id
     return proto
 
 
-@attr.attrs
-class Group(object):
-    name = attr.attrib()
-    owner = attr.attrib()
-    members = attr.Factory(list)
-
-
-
 class SSHApplicationProtocol(HistoricRecvLine):
-    avatar = None
-    prompt = "$"
     CTRL_D = '\x04'
+    user_id = None
 
     def connectionMade(self):
-        users.add_avatar(self.avatar.user_id, self.avatar)
-        self.avatar.terminal = self.terminal
         HistoricRecvLine.connectionMade(self)
         self.keyHandlers.update({
             self.CTRL_D: lambda: self.terminal.loseConnection()})
@@ -41,25 +29,31 @@ class SSHApplicationProtocol(HistoricRecvLine):
             self.handler.onConnect(self)
         except AttributeError:
             pass
-        self._protocol_stack = []
-        protocol = lobby.SSHLobbyProtocol(self.terminal)
-        self._protocol = protocol
-        protocol.avatar = self.avatar
-        protocol.initialize()
+        self._init_app_protocol()
+
+    def _init_app_protocol(self):
+        """
+        Initialize the application protocol.
+        """
+        user_id = self.user_id
+        entry = users.get_user_entry(user_id)
+        need_init = False
+        if entry.app_protocol is None:
+            app_protocol = lobby.SSHLobbyProtocol()
+            entry.app_protocol = app_protocol
+            need_init = True
+        app_protocol = entry.app_protocol
+        app_protocol.terminal = self.terminal
+        app_protocol.user_id = self.user_id
+        self._app_protocol = app_protocol
+        if need_init:
+            app_protocol.initialize()
 
     def connectionLost(self, reason):
-        avatar = self.avatar
-        users.remove_avatar(avatar.user_id, avatar)
-        self.avatar.terminal = None
-
-    def showPrompt(self):
-        self.terminal.write("{0} ".format(self.prompt))
-
-    def getCommandFunc(self, cmd):
-        return getattr(self.handler, 'handle_{0}'.format(cmd), None)
+        pass
 
     def lineReceived(self, line):
         line = line.strip()
-        self._protocol.handle_line(line)
+        self._app_protocol.handle_line(line)
 
 

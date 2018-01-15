@@ -4,6 +4,7 @@ from __future__ import (
     print_function,
 )
 import uuid
+from txsshsvr import users
 from txsshsvr.app_proto import makeSSHApplicationProtocol
 from twisted.cred.portal import IRealm
 from twisted.conch.avatar import ConchUser
@@ -23,20 +24,18 @@ class SSHAvatar(ConchUser):
     the underlying SSH session protocol.
     """
     implements(ISession)
-    protocolFactory = makeSSHApplicationProtocol
 
     def __init__(self, user_id):
-        assert self.protocolFactory is not None, "`protocolFactory` is None!"
         ConchUser.__init__(self)
         self.user_id = user_id
         self.avatar_id = uuid.uuid4().hex
         self.channelLookup.update({'session': SSHSession})
-        self.terminal = None
 
     def openShell(self, protocol):
-        serverProto = ServerProtocol(self.protocolFactory, self)
+        serverProto = ServerProtocol(makeSSHApplicationProtocol, self.user_id)
         serverProto.makeConnection(protocol)
         protocol.makeConnection(wrapProtocol(serverProto))
+        self.ssh_protocol = serverProto
 
     def getPty(self, terminal, windowSize, attrs):
         return None
@@ -51,14 +50,12 @@ class SSHAvatar(ConchUser):
 class SSHRealm(object):
     implements(IRealm)
     
-    avatarFactory = SSHAvatar
-
-    def __init__(self):
-        assert self.avatarFactory is not None, "`avatarFactory` is None!"
-
     def requestAvatar(self, avatarId, mind, *interfaces):
         if IConchUser in interfaces:
-            return (IConchUser, self.avatarFactory(avatarId), lambda: None)
+            avatar = SSHAvatar(avatarId)
+            entry = users.register_user(avatarId)
+            entry.avatar = avatar
+            return (IConchUser, avatar, lambda: None)
         else:
             raise Exception("No supported interfaces found.")
 

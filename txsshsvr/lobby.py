@@ -174,18 +174,19 @@ class LobbyProtocol(object):
 
 class SSHLobbyProtocol(LobbyProtocol):
     prompt = "$"
+    terminal = None
+    user_id = None
 
-    def __init__(self, terminal):
-        self._terminal = terminal
+    def __init__(self):
         self.valid_commands = {}
 
     def handle_unjoined(self):
-        terminal = self._terminal
+        terminal = self.terminal
         terminal.cursorHome()
         terminal.eraseLine()
         terminal.write(
             "STATUS: {}, you are not part of any session.".format(
-                self.avatar.user_id))
+                self.user_id))
         terminal.nextLine()
         msg = textwrap.dedent("""\
         Valid commands are:
@@ -215,7 +216,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         pass
 
     def show_prompt(self):
-        self._terminal.write("{0} ".format(self.prompt))
+        self.terminal.write("{0} ".format(self.prompt))
 
     def handle_line(self, line):
         """
@@ -237,16 +238,16 @@ class SSHLobbyProtocol(LobbyProtocol):
         """
         user_ids = users.get_user_ids()
         for user_id in user_ids:
-            self._terminal.write(user_id)
-            self._terminal.nextLine()
+            self.terminal.write(user_id)
+            self.terminal.nextLine()
 
     def _invite(self, args):
         """
         Invite another player or players to join a session.
         """
-        terminal = self._terminal
+        terminal = self.terminal
         players = args
-        this_player = self.avatar.user_id.lower()
+        this_player = self.user_id.lower()
         user_ids = users.get_user_ids()
         other_players = set([uid.lower() for uid in user_ids])
         other_players.discard(this_player)
@@ -278,8 +279,8 @@ class SSHLobbyProtocol(LobbyProtocol):
         """
         Command entered was invalid.
         """
-        self._terminal.write("Invalid command: {}".format(args[0]))
-        self._terminal.nextLine()
+        self.terminal.write("Invalid command: {}".format(args[0]))
+        self.terminal.nextLine()
 
 
 def apply_to_user_terminals(user_id, func_name, *args, **kwds):
@@ -287,9 +288,9 @@ def apply_to_user_terminals(user_id, func_name, *args, **kwds):
     Call a method on the terminals of all avatars associated with this
     user.
     """
-    avatars = users.get_avatars_for_user(user_id)
-    for avatar in avatars:
-        terminal = avatar.terminal
-        f = getattr(terminal, func_name)
-        f(*args, **kwds)
+    entry = users.get_user_entry(user_id)
+    avatar = entry.avatar
+    terminal = avatar.ssh_protocol.terminalProtocol.terminal
+    f = getattr(terminal, func_name)
+    f(*args, **kwds)
 
