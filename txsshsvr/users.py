@@ -43,6 +43,16 @@ def get_user_ids():
     users.sort()
     return users
 
+def get_avatars_for_user(user_id):
+    """
+    Return all avatars for the user_id.
+    """
+    global _user_registry
+    entry = _user_registry.get(user_id, None)
+    if entry:
+        return entry.avatars.values() 
+    else:
+        return []
 
 
 

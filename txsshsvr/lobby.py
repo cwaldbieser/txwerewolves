@@ -194,6 +194,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         """)
         self.valid_commands = {
             'list': self._list_players,
+            'invite': self._invite,
         }
         terminal.write(msg)
         self.show_prompt()
@@ -238,6 +239,40 @@ class SSHLobbyProtocol(LobbyProtocol):
         for user_id in user_ids:
             self._terminal.write(user_id)
             self._terminal.nextLine()
+
+    def _invite(self, args):
+        """
+        Invite another player or players to join a session.
+        """
+        terminal = self._terminal
+        players = args
+        this_player = self.avatar.user_id.lower()
+        user_ids = users.get_user_ids()
+        other_players = set([uid.lower() for uid in user_ids])
+        other_players.discard(this_player)
+        valid = True
+        for user_id in players:
+            user_id = user_id.lower()
+            if user_id == this_player:
+                terminal.write("Cannot invite yourself.")
+                terminal.nextLine()
+                valid = False
+            elif not user_id in other_players:
+                terminal.write("User '{}' is not logged in.".format(user_id))
+                terminal.nextLine()
+                valid = False
+        if not valid:
+            return
+        player_set = set(other_players)
+        player_set.add(this_player)
+        for user_id in player_set:
+            apply_to_user_terminals(
+                user_id,
+                'write',
+                "This command is under construction ...")
+            apply_to_user_terminals(
+                user_id,
+                'nextLine')
         
     def _invalid_command(self, args):
         """
@@ -245,4 +280,16 @@ class SSHLobbyProtocol(LobbyProtocol):
         """
         self._terminal.write("Invalid command: {}".format(args[0]))
         self._terminal.nextLine()
+
+
+def apply_to_user_terminals(user_id, func_name, *args, **kwds):
+    """
+    Call a method on the terminals of all avatars associated with this
+    user.
+    """
+    avatars = users.get_avatars_for_user(user_id)
+    for avatar in avatars:
+        terminal = avatar.terminal
+        f = getattr(terminal, func_name)
+        f(*args, **kwds)
 

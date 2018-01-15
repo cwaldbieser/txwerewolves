@@ -31,6 +31,7 @@ class SSHAvatar(ConchUser):
         self.user_id = user_id
         self.avatar_id = uuid.uuid4().hex
         self.channelLookup.update({'session': SSHSession})
+        self.terminal = None
 
     def openShell(self, protocol):
         serverProto = ServerProtocol(self.protocolFactory, self)

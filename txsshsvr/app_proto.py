@@ -33,6 +33,7 @@ class SSHApplicationProtocol(HistoricRecvLine):
 
     def connectionMade(self):
         users.add_avatar(self.avatar.user_id, self.avatar)
+        self.avatar.terminal = self.terminal
         HistoricRecvLine.connectionMade(self)
         self.keyHandlers.update({
             self.CTRL_D: lambda: self.terminal.loseConnection()})
@@ -49,6 +50,7 @@ class SSHApplicationProtocol(HistoricRecvLine):
     def connectionLost(self, reason):
         avatar = self.avatar
         users.remove_avatar(avatar.user_id, avatar)
+        self.avatar.terminal = None
 
     def showPrompt(self):
         self.terminal.write("{0} ".format(self.prompt))
