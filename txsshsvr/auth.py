@@ -13,6 +13,17 @@ from twisted.conch.interfaces import IConchUser, ISession
 from twisted.conch.ssh.session import SSHSession, wrapProtocol
 from zope.interface import implements
 
+class ServerProtocol2(ServerProtocol):
+    """
+    Like `tx.conch.insults.insults.ServerProtocol`, but with options.
+    """
+    clearOnExit = True
+
+    def loseConnection(self):
+        if self.clearOnExit:
+            self.terminalProtocol.terminal.reset()
+        self.transport.loseConnection()
+
 
 class SSHAvatar(ConchUser):
     """
@@ -32,7 +43,7 @@ class SSHAvatar(ConchUser):
         self.channelLookup.update({'session': SSHSession})
 
     def openShell(self, protocol):
-        serverProto = ServerProtocol(makeSSHApplicationProtocol, self.user_id)
+        serverProto = ServerProtocol2(makeSSHApplicationProtocol, self.user_id)
         serverProto.makeConnection(protocol)
         protocol.makeConnection(wrapProtocol(serverProto))
         self.ssh_protocol = serverProto
@@ -54,8 +65,18 @@ class SSHRealm(object):
         if IConchUser in interfaces:
             avatar = SSHAvatar(avatarId)
             entry = users.register_user(avatarId)
+            if entry.avatar is not None:
+                shut_down_avatar(entry.avatar)
             entry.avatar = avatar
             return (IConchUser, avatar, lambda: None)
         else:
             raise Exception("No supported interfaces found.")
+
+
+def shut_down_avatar(avatar, msg="Another avatar has logged in for this user.  Logging off ..."):
+    avatar.ssh_protocol.clearOnExit = False
+    terminal = avatar.ssh_protocol.terminalProtocol.terminal
+    terminal.reset()
+    terminal.write(msg)
+    terminal.loseConnection()
 
