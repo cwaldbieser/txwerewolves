@@ -75,7 +75,10 @@ class SSHRealm(object):
 
 def shut_down_avatar(avatar, msg="Another avatar has logged in for this user.  Logging off ..."):
     avatar.ssh_protocol.clearOnExit = False
-    terminal = avatar.ssh_protocol.terminalProtocol.terminal
+    terminalProtocol = avatar.ssh_protocol.terminalProtocol
+    if terminalProtocol is None:
+        return
+    terminal = terminalProtocol.terminal
     terminal.reset()
     terminal.write(msg)
     terminal.loseConnection()

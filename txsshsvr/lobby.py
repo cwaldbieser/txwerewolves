@@ -179,7 +179,13 @@ class SSHLobbyProtocol(LobbyProtocol):
 
     def __init__(self):
         self.valid_commands = {}
+        self.banner = ""
 
+    def show_banner(self):
+        terminal = self.terminal
+        terminal.nextLine()
+        terminal.write(self.banner)
+        terminal.nextLine()
     def handle_unjoined(self):
         terminal = self.terminal
         terminal.cursorHome()
@@ -188,7 +194,7 @@ class SSHLobbyProtocol(LobbyProtocol):
             "STATUS: {}, you are not part of any session.".format(
                 self.user_id))
         terminal.nextLine()
-        msg = textwrap.dedent("""\
+        self.banner = textwrap.dedent("""\
         Valid commands are:
         * invite player[, player ...] - Invite players to join a session.
         * list                        - List players in the lobby. 
@@ -197,7 +203,7 @@ class SSHLobbyProtocol(LobbyProtocol):
             'list': self._list_players,
             'invite': self._invite,
         }
-        terminal.write(msg)
+        self.show_banner()
         self.show_prompt()
     
     def handle_invited(self):

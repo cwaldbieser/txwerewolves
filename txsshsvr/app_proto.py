@@ -48,6 +48,10 @@ class SSHApplicationProtocol(HistoricRecvLine):
         self._app_protocol = app_protocol
         if need_init:
             app_protocol.initialize()
+        else:
+            self.terminal.reset()
+            app_protocol.show_banner()
+            app_protocol.show_prompt()
 
     def connectionLost(self, reason):
         pass
