@@ -3,9 +3,13 @@ from __future__ import (
     absolute_import,
     print_function,
 )
-from txsshsvr import users
+from txsshsvr import (
+    session,
+    users,
+)
 import textwrap
 from automat import MethodicalMachine
+from twisted.internet import defer
 
 
 class LobbyProtocol(object):
@@ -173,130 +177,172 @@ class LobbyProtocol(object):
 
 
 class SSHLobbyProtocol(LobbyProtocol):
-    prompt = "$"
+    DBORDER_UP_LEFT = unichr(0x2554)
+    DBORDER_UP_RIGHT = unichr(0x2557)
+    DBORDER_DOWN_LEFT = unichr(0x255A)
+    DBORDER_DOWN_RIGHT = unichr(0x255D)
+    DBORDER_VERTICAL = unichr(0x2551)
+    DBORDER_HORIZONTAL = unichr(0x2550)
     terminal = None
+    term_size = (80, 24)
     user_id = None
 
     def __init__(self):
+        self.dialog_msg = None
+        self.dialog_commands = None
+        self.msg = ""
+        self.status = ""
+        self.output = ""
         self.valid_commands = {}
-        self.banner = ""
 
-    def show_banner(self):
+    def update_display(self):
+        """
+        Update the status and message area. 
+        """
         terminal = self.terminal
-        terminal.nextLine()
-        terminal.write(self.banner)
-        terminal.nextLine()
-    def handle_unjoined(self):
+        terminal.reset()
+        tw, th = self.term_size
+        self._draw_border()
+        #self._update_player_area()
+        #self._update_status_area()
+
+    def _draw_border(self):
+        """
+        Draw a border around the display area.
+        """
         terminal = self.terminal
+        tw, th = self.term_size
         terminal.cursorHome()
-        terminal.eraseLine()
-        terminal.write(
-            "STATUS: {}, you are not part of any session.".format(
-                self.user_id))
-        terminal.nextLine()
-        self.banner = textwrap.dedent("""\
+        terminal.write(self.DBORDER_UP_LEFT)
+        terminal.write(self.DBORDER_HORIZONTAL * (tw - 2))
+        terminal.write(self.DBORDER_UP_RIGHT)
+        for n in range(1, th):
+            terminal.cursorPosition(0, n)
+            terminal.write(self.DBORDER_VERTICAL)
+            terminal.cursorPosition(tw-1, n)
+            terminal.write(self.DBORDER_VERTICAL)
+        terminal.cursorPosition(0, th - 1)
+        terminal.write(self.DBORDER_DOWN_LEFT)
+        terminal.write(self.DBORDER_HORIZONTAL * (tw - 2))
+        terminal.write(self.DBORDER_DOWN_RIGHT)
+            
+
+    def handle_unjoined(self):
+        self.status = "You are not part of any session."
+        self.msg = textwrap.dedent("""\
         Valid commands are:
-        * invite player[, player ...] - Invite players to join a session.
-        * list                        - List players in the lobby. 
+        * (i)nvite players            - Invite players to join a session.
+        * (l)ist                      - List players in the lobby.
         """)
         self.valid_commands = {
-            'list': self._list_players,
-            'invite': self._invite,
+            'l': self._list_players,
+            'i': self._invite,
         }
-        self.show_banner()
-        self.show_prompt()
+        self.update_display()
     
     def handle_invited(self):
         pass
     
     def handle_waiting_for_accepts(self):
-        pass
+        self.status = "Session {} - Waiting for Responses".format(
+                user_entry.joined_id)
+        self.msg = textwrap.dedent("""\
+        Valid commands are:
+        * (s)tart                     - Start the session with the current members.
+        * (c)ancel                    - Cancel the session.
+        """)
+        self.valid_commands = {
+            's': lambda args: self.terminal.write("Under construction."),
+            'c': lambda args: self.terminal.write("Under construction."),
+        }
+        self.update_display()
     
     def handle_session_started(self):
         pass
-    
+   
     def handle_invited(self):
-        pass
+        self.status = "Invited to join session '{}'.".format(
+                user_entry.invited_id)
+        self.banner = textwrap.dedent("""\
+        Valid commands are:
+        * (a)ccept                    - Accept invitation to join session.
+        * (r)eject                    - Reject invitation to join session.
+        """)
+        self.valid_commands = {
+            'a': lambda args: self.terminal.write("Under construction."),
+            'r': lambda args: self.terminal.write("Under construction."),
+        }
+        self.update_display()
 
     def handle_accepted(self):
         pass
 
-    def show_prompt(self):
-        self.terminal.write("{0} ".format(self.prompt))
-
-    def handle_line(self, line):
-        """
-        Parse user input and act on commands.
-        """
-        line = line.strip()
-        if line == "":
-            return
-        words = line.split()
-        command = words[0].lower()
-        args = words[1:]
-        func = self.valid_commands.get(command, lambda args: self._invalid_command(words))
-        func(args)
-        self.show_prompt()
-
-    def _list_players(self, args):
+    def _list_players(self):
         """
         List players.
         """
         user_ids = users.get_user_ids()
-        for user_id in user_ids:
-            self.terminal.write(user_id)
-            self.terminal.nextLine()
+        self.output = '\n'.join(user_ids)
+        self.update_display()
 
-    def _invite(self, args):
+    def _invite(self):
         """
         Invite another player or players to join a session.
         """
-        terminal = self.terminal
-        players = args
-        this_player = self.user_id.lower()
-        user_ids = users.get_user_ids()
-        other_players = set([uid.lower() for uid in user_ids])
-        other_players.discard(this_player)
-        valid = True
-        for user_id in players:
-            user_id = user_id.lower()
-            if user_id == this_player:
-                terminal.write("Cannot invite yourself.")
-                terminal.nextLine()
-                valid = False
-            elif not user_id in other_players:
-                terminal.write("User '{}' is not logged in.".format(user_id))
-                terminal.nextLine()
-                valid = False
-        if not valid:
-            return
-        player_set = set(other_players)
-        player_set.add(this_player)
+        this_player = self.user_id()
+        other_players = self._choose_invitees()
+        user_entry = users.get_user_entry(this_player)
+        session_entry = session.create_session()
+        session_entry.owner = this_player
+        session_entry.members.add(this_player)
+        user_entry.joined_id = session_entry.session_id
+        self.send_invitations()
         for user_id in player_set:
-            apply_to_user_terminals(
-                user_id,
-                'write',
-                "This command is under construction ...")
-            apply_to_user_terminals(
-                user_id,
-                'nextLine')
+            user_entry = users.get_user_entry(user_id)
+            user_entry.invited_id = session_entry.session_id
+            user_entry.app_protocol.received_invitation()
         
-    def _invalid_command(self, args):
+    def _choose_invitees(self):
         """
-        Command entered was invalid.
+        Create dialog for user to choose invitees.
         """
-        self.terminal.write("Invalid command: {}".format(args[0]))
-        self.terminal.nextLine()
+        this_user = self.user_id
+        user_ids = users.get_user_ids()
+        other_users = set([])
+        for user_id in user_ids:
+            if user_id == this.user:
+                continue
+            entry = users.get_user_entry(user_id)
+            if entry.avatar is None:
+                continue
+            if entry.invited_id is not None:
+                continue
+            if entry.joined_id is not None:
+                continue
+            other_users.add(user_id)  
+        self.dialog_commands = {
 
+        }
+        self.dialog_msg = ""
 
-def apply_to_user_terminals(user_id, func_name, *args, **kwds):
-    """
-    Call a method on the terminals of all avatars associated with this
-    user.
-    """
-    entry = users.get_user_entry(user_id)
-    avatar = entry.avatar
-    terminal = avatar.ssh_protocol.terminalProtocol.terminal
-    f = getattr(terminal, func_name)
-    f(*args, **kwds)
+    def handle_input(self, key_id, modifiers):
+        """
+        Parse user input and act on commands.
+        """
+        if self.dialog_commands is not None:
+            func = self.dialog_commands.get(key_id)
+        else:
+            func = self.valid_commands.get(key_id)
+        if func is None:
+            return
+        func()
+        self.update_display()
+
+    def terminalSize(self, w, h):
+        """
+        Handles when the terminal is resized.
+        """
+        self.terminal.reset()
+        self.term_size = (w, h)
+        self.update_display()
 

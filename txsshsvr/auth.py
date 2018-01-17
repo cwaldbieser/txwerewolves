@@ -11,6 +11,7 @@ from twisted.conch.avatar import ConchUser
 from twisted.conch.insults.insults import ServerProtocol
 from twisted.conch.interfaces import IConchUser, ISession
 from twisted.conch.ssh.session import SSHSession, wrapProtocol
+from twisted.python import log
 from zope.interface import implements
 
 class ServerProtocol2(ServerProtocol):
@@ -41,18 +42,34 @@ class SSHAvatar(ConchUser):
         self.user_id = user_id
         self.avatar_id = uuid.uuid4().hex
         self.channelLookup.update({'session': SSHSession})
+        self.terminal = None
+        self.term_size = (20, 80)
+        self.ssh_protocol = None
 
     def openShell(self, protocol):
         serverProto = ServerProtocol2(makeSSHApplicationProtocol, self.user_id)
         serverProto.makeConnection(protocol)
         protocol.makeConnection(wrapProtocol(serverProto))
         self.ssh_protocol = serverProto
+        app_protocol = serverProto.terminalProtocol.app_protocol
+        app_protocol.term_size = self.term_size
+        app_protocol.update_display()
 
     def getPty(self, terminal, windowSize, attrs):
+        h, w, x, y = windowSize
+        self.term_size = (w, h)
+        self.terminal = terminal
         return None
 
     def execCommand(self, protocol, cmd):
         raise NotImplementedError("Not implemented.")
+
+    def  windowChanged(self, newWindowSize):
+        h, w, x, y = newWindowSize
+        self.term_size = (w, h)
+        app_protocol = self.ssh_protocol.terminalProtocol.app_protocol
+        app_protocol.term_size = self.term_size
+        app_protocol.update_display()
 
     def closed(self):
         pass

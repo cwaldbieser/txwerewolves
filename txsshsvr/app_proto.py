@@ -8,6 +8,7 @@ from txsshsvr import (
     users,
 )
 from twisted.conch.recvline import HistoricRecvLine
+from twisted.conch.insults.insults import TerminalProtocol
 from twisted.python import log
 from textwrap import dedent
 
@@ -17,19 +18,26 @@ def makeSSHApplicationProtocol(user_id):
     return proto
 
 
-class SSHApplicationProtocol(HistoricRecvLine):
+class SSHApplicationProtocol(TerminalProtocol):
     CTRL_D = '\x04'
     user_id = None
 
     def connectionMade(self):
-        HistoricRecvLine.connectionMade(self)
-        self.keyHandlers.update({
-            self.CTRL_D: lambda: self.terminal.loseConnection()})
-        try:
-            self.handler.onConnect(self)
-        except AttributeError:
-            pass
+        TerminalProtocol.connectionMade(self)
         self._init_app_protocol()
+
+    def keystrokeReceived(self, keyID, modifier):
+        log.msg("key_id: {}, modifier: {}".format(keyID, modifier))
+        if keyID == self.CTRL_D:
+            self.terminal.loseConnection()
+        else:
+            self.app_protocol.handle_input(keyID, modifier)
+
+    def terminalSize(self, width, height):
+        log.msg("width: {}, height: {}".format(width, height))
+
+    def unhandledControlSequence(self, seq):
+        log.msg("unhandled control seq.")
 
     def _init_app_protocol(self):
         """
@@ -45,19 +53,13 @@ class SSHApplicationProtocol(HistoricRecvLine):
         app_protocol = entry.app_protocol
         app_protocol.terminal = self.terminal
         app_protocol.user_id = self.user_id
-        self._app_protocol = app_protocol
+        self.app_protocol = app_protocol
         if need_init:
             app_protocol.initialize()
         else:
             self.terminal.reset()
-            app_protocol.show_banner()
-            app_protocol.show_prompt()
+            app_protocol.update_display()
 
     def connectionLost(self, reason):
         pass
-
-    def lineReceived(self, line):
-        line = line.strip()
-        self._app_protocol.handle_line(line)
-
 
