@@ -1,6 +1,7 @@
 
 from __future__ import (
     absolute_import,
+    division,
     print_function,
 )
 from txsshsvr import (
@@ -203,7 +204,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         terminal.reset()
         tw, th = self.term_size
         self._draw_border()
-        #self._update_player_area()
+        self._update_player_area()
         #self._update_status_area()
 
     def _draw_border(self):
@@ -225,7 +226,20 @@ class SSHLobbyProtocol(LobbyProtocol):
         terminal.write(self.DBORDER_DOWN_LEFT)
         terminal.write(self.DBORDER_HORIZONTAL * (tw - 2))
         terminal.write(self.DBORDER_DOWN_RIGHT)
-            
+        
+    def _update_player_area(self):
+        """
+        Set the player name as the title of the window.
+        """
+        player = self.user_id
+        terminal = self.terminal
+        tw, th = self.term_size
+        max_len = tw - 2
+        if len(player) > max_len:
+            player = player[:max_len]
+        pos = (tw - len(player)) // 2
+        terminal.cursorPosition(pos, 0)
+        terminal.write(player)
 
     def handle_unjoined(self):
         self.status = "You are not part of any session."
