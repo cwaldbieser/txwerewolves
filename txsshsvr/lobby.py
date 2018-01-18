@@ -10,6 +10,10 @@ from txsshsvr import (
 )
 import textwrap
 from automat import MethodicalMachine
+from twisted.conch.insults.text import (
+    attributes as A,
+    assembleFormattedText,
+)
 from twisted.internet import defer
 
 
@@ -184,6 +188,9 @@ class SSHLobbyProtocol(LobbyProtocol):
     DBORDER_DOWN_RIGHT = unichr(0x255D)
     DBORDER_VERTICAL = unichr(0x2551)
     DBORDER_HORIZONTAL = unichr(0x2550)
+    DVERT_T_LEFT = unichr(0x255F)
+    DVERT_T_RIGHT = unichr(0x2562)
+    HORIZONTAL = unichr(0x2500)
     terminal = None
     term_size = (80, 24)
     user_id = None
@@ -205,7 +212,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         tw, th = self.term_size
         self._draw_border()
         self._update_player_area()
-        #self._update_status_area()
+        self._update_status_area()
 
     def _draw_border(self):
         """
@@ -239,7 +246,22 @@ class SSHLobbyProtocol(LobbyProtocol):
             player = player[:max_len]
         pos = (tw - len(player)) // 2
         terminal.cursorPosition(pos, 0)
-        terminal.write(player)
+        terminal.saveCursor()
+        #reverseVideo, underline, bold
+        player_text = assembleFormattedText(A.bold[A.fg.blue[player]])
+        terminal.write(player_text)
+        terminal.restoreCursor()
+
+    def _update_status_area(self):
+        """
+        Update the status area with a brief message.
+        """
+        terminal = self.terminal
+        tw, th = self.term_size
+        terminal.cursorPosition(0, 2)
+        terminal.write(self.DVERT_T_LEFT)
+        terminal.write(self.HORIZONTAL * (tw - 2))
+        terminal.write(self.DVERT_T_RIGHT)
 
     def handle_unjoined(self):
         self.status = "You are not part of any session."
