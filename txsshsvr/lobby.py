@@ -262,6 +262,13 @@ class SSHLobbyProtocol(LobbyProtocol):
         terminal.write(self.DVERT_T_LEFT)
         terminal.write(self.HORIZONTAL * (tw - 2))
         terminal.write(self.DVERT_T_RIGHT)
+        status = self.status
+        status_size = len(status)
+        if status_size >= (tw - 2):
+            status = status[:status_size - 2]
+        pos = (tw - status_size) // 2
+        terminal.cursorPosition(pos, 1)
+        terminal.write(status)
 
     def handle_unjoined(self):
         self.status = "You are not part of any session."
