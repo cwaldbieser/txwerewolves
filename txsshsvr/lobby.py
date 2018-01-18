@@ -201,6 +201,7 @@ class SSHLobbyProtocol(LobbyProtocol):
     DVERT_T_RIGHT = unichr(0x2562)
     HORIZONTAL = unichr(0x2500)
     VERTICAL = unichr(0x2502)
+    HORIZONTAL_DASHED = unichr(0x254C)
     terminal = None
     term_size = (80, 24)
     user_id = None
@@ -295,7 +296,7 @@ class SSHLobbyProtocol(LobbyProtocol):
             lines = textwrap.wrap(text_line, width=(tw - 4), replace_whitespace=False) 
             instructions.extend(lines)
         row = 4
-        maxrow = th - 2
+        maxrow = 14
         maxwidth = max(len(line) for line in instructions)
         pos = (tw - (maxwidth + 2)) // 2
         terminal.cursorPosition(pos, row)
@@ -324,7 +325,14 @@ class SSHLobbyProtocol(LobbyProtocol):
         """
         Show output.
         """
-        pass
+        terminal = self.terminal
+        tw, th = self.term_size
+        output = self.output
+        row = 15
+        terminal.cursorPosition(0, row)
+        terminal.write(self.DVERT_T_LEFT)
+        terminal.write(self.HORIZONTAL_DASHED * (tw - 2))
+        terminal.write(self.DVERT_T_RIGHT)
 
     def handle_unjoined(self):
         self.status = "You are not part of any session."
