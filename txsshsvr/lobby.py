@@ -193,9 +193,14 @@ class SSHLobbyProtocol(LobbyProtocol):
     DBORDER_DOWN_RIGHT = unichr(0x255D)
     DBORDER_VERTICAL = unichr(0x2551)
     DBORDER_HORIZONTAL = unichr(0x2550)
+    DHBORDER_UP_LEFT = unichr(0x2552)
+    DHBORDER_UP_RIGHT = unichr(0x2555)
+    DHBORDER_DOWN_LEFT = unichr(0x2558)
+    DHBORDER_DOWN_RIGHT = unichr(0x255B)
     DVERT_T_LEFT = unichr(0x255F)
     DVERT_T_RIGHT = unichr(0x2562)
     HORIZONTAL = unichr(0x2500)
+    VERTICAL = unichr(0x2502)
     terminal = None
     term_size = (80, 24)
     user_id = None
@@ -219,6 +224,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         self._update_player_area()
         self._update_status_area()
         self._update_instructions()
+        self._show_output()
 
     def _draw_border(self):
         """
@@ -289,15 +295,36 @@ class SSHLobbyProtocol(LobbyProtocol):
             lines = textwrap.wrap(text_line, width=(tw - 4), replace_whitespace=False) 
             instructions.extend(lines)
         row = 4
-        maxrow = th - 1
+        maxrow = th - 2
         maxwidth = max(len(line) for line in instructions)
-        pos = (tw - maxwidth) // 2
+        pos = (tw - (maxwidth + 2)) // 2
+        terminal.cursorPosition(pos, row)
+        terminal.write(self.DHBORDER_UP_LEFT)
+        terminal.write(self.DBORDER_HORIZONTAL * maxwidth)
+        terminal.write(self.DHBORDER_UP_RIGHT)
+        title = "Instructions"
+        terminal.cursorPosition((tw - len(title)) // 2, row)
+        terminal.write(title)
+        row += 1 
         for line in instructions:
             if row > maxrow:
                 break
             terminal.cursorPosition(pos, row)
+            terminal.write(self.VERTICAL)
             terminal.write(line)
+            terminal.cursorPosition(pos + maxwidth + 1, row)
+            terminal.write(self.VERTICAL)
             row += 1
+        terminal.cursorPosition(pos, row)
+        terminal.write(self.DHBORDER_DOWN_LEFT)
+        terminal.write(self.DBORDER_HORIZONTAL * maxwidth)
+        terminal.write(self.DHBORDER_DOWN_RIGHT)
+
+    def _show_output(self):
+        """
+        Show output.
+        """
+        pass
 
     def handle_unjoined(self):
         self.status = "You are not part of any session."
