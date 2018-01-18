@@ -226,6 +226,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         self._update_status_area()
         self._update_instructions()
         self._show_output()
+        terminal.cursorPosition(0, th - 1)
 
     def _draw_border(self):
         """
@@ -333,6 +334,19 @@ class SSHLobbyProtocol(LobbyProtocol):
         terminal.write(self.DVERT_T_LEFT)
         terminal.write(self.HORIZONTAL_DASHED * (tw - 2))
         terminal.write(self.DVERT_T_RIGHT)
+        if output is None:
+            return
+        textlines = output.split("\n")
+        termlines = []
+        for textline in textlines:
+            lines = textwrap.wrap(textline, width=(tw - 4), replace_whitespace=False) 
+            termlines.extend(lines)
+        row += 1
+        for line in termlines:
+            terminal.cursorPosition(2, row)
+            terminal.write(line)
+            row += 1
+        
 
     def handle_unjoined(self):
         self.status = "You are not part of any session."
@@ -347,9 +361,6 @@ class SSHLobbyProtocol(LobbyProtocol):
         }
         self.update_display()
     
-    def handle_invited(self):
-        pass
-    
     def handle_waiting_for_accepts(self):
         self.status = "Session {} - Waiting for Responses".format(
                 user_entry.joined_id)
@@ -359,8 +370,8 @@ class SSHLobbyProtocol(LobbyProtocol):
         * (c)ancel                    - Cancel the session.
         """)
         self.valid_commands = {
-            's': lambda args: self.terminal.write("Under construction."),
-            'c': lambda args: self.terminal.write("Under construction."),
+            's': lambda args: "",
+            'c': lambda args: "",
         }
         self.update_display()
     
@@ -389,7 +400,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         List players.
         """
         user_ids = users.get_user_ids()
-        self.output = '\n'.join(user_ids)
+        self.output = "Available Players:\n{}".format('\n'.join(user_ids))
         self.update_display()
 
     def _invite(self):
