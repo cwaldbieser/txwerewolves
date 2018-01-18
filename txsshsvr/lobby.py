@@ -15,6 +15,7 @@ from twisted.conch.insults.text import (
     assembleFormattedText,
 )
 from twisted.internet import defer
+from twisted.python import log
 
 
 class LobbyProtocol(object):
@@ -40,7 +41,8 @@ class LobbyProtocol(object):
     def waiting_for_accepts(self):
         """
         User has invited others to a session, is waiting for them to accept.
-        May still cancel invite at this point.
+        May cancel session and all accepts and outstanding invites.
+        May choose to start session, cancelling any outstanding invites.
         """
 
     @_machine.state()
@@ -76,19 +78,19 @@ class LobbyProtocol(object):
         """
 
     @_machine.input()
-    def send_invitations(self):
+    def send_invitation(self):
         """
-        Send invitations to other users.
-        """
-
-    @_machine.input()
-    def received_invitation(self):
-        """
-        Received an invitation to join a session.
+        Send an invitation to another player.
         """
 
     @_machine.input()
-    def received_accepts(self):
+    def receive_invitation(self):
+        """
+        Receive an invitation to join a session.
+        """
+
+    @_machine.input()
+    def start_session(self):
         """
         Received acceptances to all invitations sent.
         """
@@ -96,7 +98,9 @@ class LobbyProtocol(object):
     @_machine.input()
     def cancel(self):
         """
-        Cancel an invitation or an acceptance.
+        Cancel a session that has not yet been started if you are the owner.
+        OR
+        Cancel acceptance into a session that has not yet been started.
         """
 
     @_machine.input()
@@ -171,10 +175,11 @@ class LobbyProtocol(object):
     # Transitions
     # -----------
     start.upon(initialize, enter=unjoined, outputs=[_enter_unjoined])
-    unjoined.upon(send_invitations, enter=waiting_for_accepts, outputs=[_enter_unjoined])
-    unjoined.upon(received_invitation, enter=invited, outputs=[_enter_invited])
-    waiting_for_accepts.upon(received_accepts, enter=session_started, outputs=[_enter_session_started])
+    unjoined.upon(send_invitation, enter=waiting_for_accepts, outputs=[_enter_waiting_for_accepts])
+    unjoined.upon(receive_invitation, enter=invited, outputs=[_enter_invited])
+    waiting_for_accepts.upon(start_session, enter=session_started, outputs=[_enter_session_started])
     waiting_for_accepts.upon(cancel, enter=unjoined, outputs=[_enter_unjoined])
+    waiting_for_accepts.upon(send_invitation, enter=waiting_for_accepts, outputs=[_enter_waiting_for_accepts])
     invited.upon(accept, enter=accepted, outputs=[_enter_accepted])
     invited.upon(reject, enter=unjoined, outputs=[_enter_unjoined])
     accepted.upon(start_session, enter=session_started, outputs=[_enter_session_started])
@@ -198,7 +203,7 @@ class SSHLobbyProtocol(LobbyProtocol):
     def __init__(self):
         self.dialog_msg = None
         self.dialog_commands = None
-        self.msg = ""
+        self.instructions = ""
         self.status = ""
         self.output = ""
         self.valid_commands = {}
@@ -213,6 +218,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         self._draw_border()
         self._update_player_area()
         self._update_status_area()
+        self._update_instructions()
 
     def _draw_border(self):
         """
@@ -270,9 +276,32 @@ class SSHLobbyProtocol(LobbyProtocol):
         terminal.cursorPosition(pos, 1)
         terminal.write(status)
 
+    def _update_instructions(self):
+        """
+        Display instructions to the player.
+        """
+        terminal = self.terminal
+        tw, th = self.term_size
+        instructions = self.instructions
+        text_lines = instructions.split("\n")
+        instructions = []
+        for text_line in text_lines:
+            lines = textwrap.wrap(text_line, width=(tw - 4), replace_whitespace=False) 
+            instructions.extend(lines)
+        row = 4
+        maxrow = th - 1
+        maxwidth = max(len(line) for line in instructions)
+        pos = (tw - maxwidth) // 2
+        for line in instructions:
+            if row > maxrow:
+                break
+            terminal.cursorPosition(pos, row)
+            terminal.write(line)
+            row += 1
+
     def handle_unjoined(self):
         self.status = "You are not part of any session."
-        self.msg = textwrap.dedent("""\
+        self.instructions = textwrap.dedent("""\
         Valid commands are:
         * (i)nvite players            - Invite players to join a session.
         * (l)ist                      - List players in the lobby.
@@ -289,7 +318,7 @@ class SSHLobbyProtocol(LobbyProtocol):
     def handle_waiting_for_accepts(self):
         self.status = "Session {} - Waiting for Responses".format(
                 user_entry.joined_id)
-        self.msg = textwrap.dedent("""\
+        self.instructions = textwrap.dedent("""\
         Valid commands are:
         * (s)tart                     - Start the session with the current members.
         * (c)ancel                    - Cancel the session.
@@ -332,42 +361,12 @@ class SSHLobbyProtocol(LobbyProtocol):
         """
         Invite another player or players to join a session.
         """
-        this_player = self.user_id()
-        other_players = self._choose_invitees()
+        this_player = self.user_id
         user_entry = users.get_user_entry(this_player)
         session_entry = session.create_session()
         session_entry.owner = this_player
         session_entry.members.add(this_player)
-        user_entry.joined_id = session_entry.session_id
-        self.send_invitations()
-        for user_id in player_set:
-            user_entry = users.get_user_entry(user_id)
-            user_entry.invited_id = session_entry.session_id
-            user_entry.app_protocol.received_invitation()
         
-    def _choose_invitees(self):
-        """
-        Create dialog for user to choose invitees.
-        """
-        this_user = self.user_id
-        user_ids = users.get_user_ids()
-        other_users = set([])
-        for user_id in user_ids:
-            if user_id == this.user:
-                continue
-            entry = users.get_user_entry(user_id)
-            if entry.avatar is None:
-                continue
-            if entry.invited_id is not None:
-                continue
-            if entry.joined_id is not None:
-                continue
-            other_users.add(user_id)  
-        self.dialog_commands = {
-
-        }
-        self.dialog_msg = ""
-
     def handle_input(self, key_id, modifiers):
         """
         Parse user input and act on commands.
