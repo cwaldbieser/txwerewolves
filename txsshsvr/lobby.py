@@ -568,9 +568,24 @@ class ChoosePlayerDialog(AbstractDialog):
 
     def _cycle_players_up(self):
         log.msg("Cycling players up ...")
+        players = self.players
+        pos = self.player_pos
+        pos -= 1
+        if pos < 0:
+            return
+        else:
+            self.player_pos = pos
 
     def _cycle_players_down(self):
         log.msg("Cycling players down ...")
+        players = self.players
+        pos = self.player_pos
+        pos += 1
+        if pos >= len(players):
+            return
+        else:
+            self.player_pos = pos
+        
 
     def _send_invite_to_player(self):
         log.msg("Sending invite to player ...")
