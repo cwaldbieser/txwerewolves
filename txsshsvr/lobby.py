@@ -418,6 +418,14 @@ class SSHLobbyProtocol(LobbyProtocol):
         Invite another player or players to join a session.
         """
         this_player = self.user_id
+        players = set(users.get_user_ids())
+        players.discard(this_player)
+        if len(players) == 0:
+            self.output = "No other players to invite at this time."
+            self.update_display()
+            return
+        players = list(players)
+        players.sort()
         user_entry = users.get_user_entry(this_player)
         session_entry = session.create_session()
         session_entry.owner = this_player
@@ -425,6 +433,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         dialog = ChoosePlayerDialog()
         self.dialog = dialog
         self.dialog.parent = self
+        self.dialog.players = players
         
     def handle_input(self, key_id, modifiers):
         """
@@ -466,7 +475,8 @@ class ChoosePlayerDialog(AbstractDialog):
     """
     title = " Choose Player ... "
     start_row = 16
-    player = None
+    players = None
+    player_pos = 0
 
     def show_dialog(self):
         parent = self.parent
@@ -495,20 +505,54 @@ class ChoosePlayerDialog(AbstractDialog):
             termlines.extend(lines)
         maxw = max(len(line) for line in termlines)
         row += 1
+        self._blank_dialog_line(row)
+        row += 1
+        pos = (tw - maxw) // 2
+        for line in termlines:
+            self._blank_dialog_line(row)
+            terminal.cursorPosition(pos, row)
+            terminal.write(line)
+            row += 1
+        self._blank_dialog_line(row)
+        row += 1
+        self._blank_dialog_line(row)
+        players = self.players
+        player_count = len(players)
+        player_pos = self.player_pos
+        for n in range(player_pos-1, player_pos+2):
+            if n < 0 or n >= player_count:
+                player = " "
+            else:
+                player = players[n]
+            row += 1
+            self._blank_dialog_line(row)
+            pos = (tw - len(player)) // 2
+            terminal.cursorPosition(pos, row)
+            if n == player_pos:
+                player = assembleFormattedText(A.reverseVideo[player])
+            terminal.saveCursor()
+            terminal.write(player)
+            terminal.restoreCursor()
+        row += 1
+        self._blank_dialog_line(row)
+        row += 1
+        pos = dialog_x
+        terminal.cursorPosition(pos, row)
+        terminal.write(parent.DBORDER_DOWN_LEFT)
+        terminal.write(parent.DBORDER_HORIZONTAL * (tw - 6))
+        terminal.write(parent.DBORDER_DOWN_RIGHT)
+        
+    def _blank_dialog_line(self, row):
+        parent = self.parent
+        terminal = self.parent.terminal
+        tw, th = self.parent.term_size
+        dialog_x = 2
+        dialog_w = tw - 4
         terminal.cursorPosition(dialog_x, row)
         terminal.write(parent.DBORDER_VERTICAL)
         terminal.write(" " * (dialog_w - dialog_x))
         terminal.write(parent.DBORDER_VERTICAL)
-        row += 1
-        pos = (tw - maxw) // 2
-        for line in termlines:
-            terminal.cursorPosition(dialog_x, row)
-            terminal.write(parent.DBORDER_VERTICAL)
-            terminal.write(" " * (dialog_w - dialog_x))
-            terminal.write(parent.DBORDER_VERTICAL)
-            terminal.cursorPosition(pos, row)
-            terminal.write(line)
-            row += 1
+        
 
     def handle_input(self, key_id, modifiers):
         log.msg("KEY_ID: {}".format(key_id))
@@ -518,15 +562,18 @@ class ChoosePlayerDialog(AbstractDialog):
             'i': self._send_invite_to_player,
             'q': self._cancel_dialog,
         }
+        func = dialog_commands.get(key_id, None)
+        if func is not None:
+            func()
 
     def _cycle_players_up(self):
-        pass
+        log.msg("Cycling players up ...")
 
     def _cycle_players_down(self):
-        pass
+        log.msg("Cycling players down ...")
 
     def _send_invite_to_player(self):
-        pass
+        log.msg("Sending invite to player ...")
 
     def _cancel_dialog(self):
         parent = self.parent
