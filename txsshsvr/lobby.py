@@ -202,13 +202,14 @@ class SSHLobbyProtocol(LobbyProtocol):
     HORIZONTAL = unichr(0x2500)
     VERTICAL = unichr(0x2502)
     HORIZONTAL_DASHED = unichr(0x254C)
+    UP_ARROW = unichr(0x2B06)
+    DOWN_ARROW = unichr(0x2B07)
     terminal = None
     term_size = (80, 24)
     user_id = None
 
     def __init__(self):
-        self.dialog_msg = None
-        self.dialog_commands = None
+        self.dialog = None
         self.instructions = ""
         self.status = ""
         self.output = ""
@@ -226,6 +227,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         self._update_status_area()
         self._update_instructions()
         self._show_output()
+        self._show_dialog()
         terminal.cursorPosition(0, th - 1)
 
     def _draw_border(self):
@@ -346,7 +348,15 @@ class SSHLobbyProtocol(LobbyProtocol):
             terminal.cursorPosition(2, row)
             terminal.write(line)
             row += 1
-        
+
+    def _show_dialog(self):
+        """
+        Show the dialog.
+        """
+        dialog = self.dialog
+        if self.dialog is None:
+            return        
+        dialog.show_dialog()
 
     def handle_unjoined(self):
         self.status = "You are not part of any session."
@@ -412,18 +422,21 @@ class SSHLobbyProtocol(LobbyProtocol):
         session_entry = session.create_session()
         session_entry.owner = this_player
         session_entry.members.add(this_player)
+        dialog = ChoosePlayerDialog()
+        self.dialog = dialog
+        self.dialog.parent = self
         
     def handle_input(self, key_id, modifiers):
         """
         Parse user input and act on commands.
         """
-        if self.dialog_commands is not None:
-            func = self.dialog_commands.get(key_id)
+        if self.dialog is not None:
+            self.dialog.handle_input(key_id, modifiers)
         else:
             func = self.valid_commands.get(key_id)
-        if func is None:
-            return
-        func()
+            if func is None:
+                return
+            func()
         self.update_display()
 
     def terminalSize(self, w, h):
@@ -433,4 +446,91 @@ class SSHLobbyProtocol(LobbyProtocol):
         self.terminal.reset()
         self.term_size = (w, h)
         self.update_display()
+
+
+class AbstractDialog(object):
+    """
+    A dialog base class.
+    """
+    parent = None
+    
+    def show_dialog(self):
+        raise NotImplementedError()
+
+    def handle_input(self, key_id, modifiers):
+        raise NotImplementedError()
+
+class ChoosePlayerDialog(AbstractDialog):
+    """
+    A dialog for choosing a player.
+    """
+    title = " Choose Player ... "
+    start_row = 16
+    player = None
+
+    def show_dialog(self):
+        parent = self.parent
+        title = self.title
+        terminal = self.parent.terminal
+        tw, th = self.parent.term_size
+        row = self.start_row
+        dialog_x = 2
+        dialog_w = tw - 4
+        pos = dialog_x
+        terminal.cursorPosition(pos, row)
+        terminal.write(parent.DBORDER_UP_LEFT)
+        terminal.write(parent.DBORDER_HORIZONTAL * (tw - 6))
+        terminal.write(parent.DBORDER_UP_RIGHT)
+        pos = (tw - len(title)) // 2
+        terminal.cursorPosition(pos, row)
+        terminal.write(title)
+        msg = textwrap.dedent(u"""\
+            {} - Scroll up       {}   - Scroll down
+            i - invite player   q - cancel 
+            """).format(parent.UP_ARROW, parent.DOWN_ARROW).encode('utf-8')
+        textlines = msg.split("\n")
+        termlines = []
+        for textline in textlines:
+            lines = textwrap.wrap(textline, width=(tw - 4), replace_whitespace=False) 
+            termlines.extend(lines)
+        maxw = max(len(line) for line in termlines)
+        row += 1
+        terminal.cursorPosition(dialog_x, row)
+        terminal.write(parent.DBORDER_VERTICAL)
+        terminal.write(" " * (dialog_w - dialog_x))
+        terminal.write(parent.DBORDER_VERTICAL)
+        row += 1
+        pos = (tw - maxw) // 2
+        for line in termlines:
+            terminal.cursorPosition(dialog_x, row)
+            terminal.write(parent.DBORDER_VERTICAL)
+            terminal.write(" " * (dialog_w - dialog_x))
+            terminal.write(parent.DBORDER_VERTICAL)
+            terminal.cursorPosition(pos, row)
+            terminal.write(line)
+            row += 1
+
+    def handle_input(self, key_id, modifiers):
+        log.msg("KEY_ID: {}".format(key_id))
+        dialog_commands = {
+            '[UP_ARROW]': self._cycle_players_up,
+            '[DOWN_ARROW]': self._cycle_players_down,
+            'i': self._send_invite_to_player,
+            'q': self._cancel_dialog,
+        }
+
+    def _cycle_players_up(self):
+        pass
+
+    def _cycle_players_down(self):
+        pass
+
+    def _send_invite_to_player(self):
+        pass
+
+    def _cancel_dialog(self):
+        parent = self.parent
+        self.parent.dialog = None
+        self.parent = None
+        parent.update_display()
 
