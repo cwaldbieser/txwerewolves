@@ -42,5 +42,20 @@ def create_session():
     _session_registry[session_id] = entry
     return entry
 
-
+def get_entry(session_id):
+    """
+    Retrieve session entry.
+    """
+    global _session_registry
+    entry = _session_registry.get(session_id, None)
+    return entry
+    
+def destroy_entry(session_id):
+    """
+    Remove a session entry.
+    """
+    global _session_registry
+    if session_id in _session_registry:
+        del _session_registry[session_id]
+    
 

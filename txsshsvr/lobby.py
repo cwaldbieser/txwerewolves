@@ -16,6 +16,7 @@ from twisted.conch.insults.text import (
 )
 from twisted.internet import defer
 from twisted.python import log
+from txsshsvr.todo import TodoProtocol
 
 
 class LobbyProtocol(object):
@@ -204,6 +205,7 @@ class SSHLobbyProtocol(LobbyProtocol):
     HORIZONTAL_DASHED = unichr(0x254C)
     UP_ARROW = unichr(0x2B06)
     DOWN_ARROW = unichr(0x2B07)
+    parent = None
     terminal = None
     term_size = (80, 24)
     user_id = None
@@ -372,38 +374,62 @@ class SSHLobbyProtocol(LobbyProtocol):
         self.update_display()
     
     def handle_waiting_for_accepts(self):
+        user_id = self.user_id
+        user_entry = users.get_user_entry(user_id)
         self.status = "Session {} - Waiting for Responses".format(
                 user_entry.joined_id)
         self.instructions = textwrap.dedent("""\
         Valid commands are:
         * (s)tart                     - Start the session with the current members.
+        * (i)nvite                    - Invite another player.
+        * (j)oined                    - Show players that have joined the session.
         * (c)ancel                    - Cancel the session.
         """)
         self.valid_commands = {
-            's': lambda args: "",
-            'c': lambda args: "",
+            's': self._start_session,
+            'i': self._invite,
+            'j': self._show_joined,
+            'c': self._cancel_session,
         }
         self.update_display()
     
     def handle_session_started(self):
-        pass
+        proto = TodoProtocol()
+        proto.terminal = self.terminal
+        proto.user_id = self.user_id
+        proto.parent = self.parent
+        self.parent().app_protocol = proto
+        self.terminal.reset()
+        proto.update_display()
    
     def handle_invited(self):
+        user_entry = users.get_user_entry(self.user_id)
         self.status = "Invited to join session '{}'.".format(
                 user_entry.invited_id)
-        self.banner = textwrap.dedent("""\
+        self.instructions = textwrap.dedent("""\
         Valid commands are:
         * (a)ccept                    - Accept invitation to join session.
         * (r)eject                    - Reject invitation to join session.
         """)
         self.valid_commands = {
-            'a': lambda args: self.terminal.write("Under construction."),
-            'r': lambda args: self.terminal.write("Under construction."),
+            'a': self._accept_invitation,
+            'r': self._reject_invitation,
         }
         self.update_display()
 
     def handle_accepted(self):
-        pass
+        my_entry = users.get_user_entry(self.user_id)
+        self.status = "Joined session '{}'".format(my_entry.joined_id)
+        self.instructions = textwrap.dedent("""\
+        Valid commands are:
+        * (j)oined                    - List players that have joined the session.
+        * (c)ancel                    - Leave the session.
+        """)
+        self.valid_commands = {
+            'j': self._show_joined,
+            'c': self._leave_session,
+        }
+        self.update_display()
 
     def _list_players(self):
         """
@@ -418,6 +444,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         Invite another player or players to join a session.
         """
         this_player = self.user_id
+        my_entry = users.get_user_entry(this_player)
         players = set(users.get_user_ids())
         players.discard(this_player)
         if len(players) == 0:
@@ -427,14 +454,81 @@ class SSHLobbyProtocol(LobbyProtocol):
         players = list(players)
         players.sort()
         user_entry = users.get_user_entry(this_player)
-        session_entry = session.create_session()
-        session_entry.owner = this_player
-        session_entry.members.add(this_player)
+        if my_entry.joined_id is None:
+            session_entry = session.create_session()
+            user_entry.joined_id = session_entry.session_id
+            session_entry.owner = this_player
+            session_entry.members.add(this_player)
         dialog = ChoosePlayerDialog()
         self.dialog = dialog
         self.dialog.parent = self
         self.dialog.players = players
+
+    def _show_joined(self):
+        """
+        List the players that have joined the session.
+        """
+        user_id = self.user_id
+        my_entry = users.get_user_entry(user_id)
+        session_id = my_entry.joined_id
+        session_entry = session.get_entry(session_id)
+        members = list(session_entry.members)
+        members.sort()
+        lines = []
+        for n, player in enumerate(members): 
+            lines.append("{}) {}".format(n + 1, player))
+        self.output = '\n'.join(lines)
+        self.update_display()
+
+    def _accept_invitation(self):
+        user_id = self.user_id
+        my_entry = users.get_user_entry(user_id)
+        session_id = my_entry.invited_id
+        session_entry = session.get_entry(session_id)
+        my_entry.joined_id = session_id
+        my_entry.invited_id = None
+        session_entry.members.add(user_id)
+        self.accept()
+
+    def _reject_invitation(self):
+        user_id = self.user_id
+        my_entry = users.get_user_entry(user_id)
+        my_entry.invited_id = None
+        self.reject()
         
+
+    def _leave_session(self):
+        user_id = self.user_id
+        my_entry = users.get_user_entry(user_id)
+        session_id = my_entry.joined_id
+        my_entry.joined_id = None
+        session_entry = session.get_entry(session_id)
+        session_entry.members.discard(user_id)
+        self.cancel()
+
+    def _start_session(self):
+        user_id = self.user_id
+        my_entry = users.get_user_entry(user_id)
+        session_id = my_entry.joined_id
+        session_entry = session.get_entry(session_id)
+        members = session_entry.members 
+        for member in members:
+            entry = users.get_user_entry(member)
+            entry.app_protocol.start_session()
+
+    def _cancel_session(self):
+        user_id = self.user_id
+        my_entry = users.get_user_entry(user_id)
+        session_id = my_entry.joined_id
+        session_entry = session.get_entry(session_id)
+        members = session_entry.members 
+        session.destroy_entry(session_id)
+        for member in members:
+            entry = users.get_user_entry(member)
+            entry.joined_id = None
+            entry.invited_id = None
+            entry.app_protocol.cancel()
+
     def handle_input(self, key_id, modifiers):
         """
         Parse user input and act on commands.
@@ -555,7 +649,6 @@ class ChoosePlayerDialog(AbstractDialog):
         
 
     def handle_input(self, key_id, modifiers):
-        log.msg("KEY_ID: {}".format(key_id))
         dialog_commands = {
             '[UP_ARROW]': self._cycle_players_up,
             '[DOWN_ARROW]': self._cycle_players_down,
@@ -567,7 +660,6 @@ class ChoosePlayerDialog(AbstractDialog):
             func()
 
     def _cycle_players_up(self):
-        log.msg("Cycling players up ...")
         players = self.players
         pos = self.player_pos
         pos -= 1
@@ -577,7 +669,6 @@ class ChoosePlayerDialog(AbstractDialog):
             self.player_pos = pos
 
     def _cycle_players_down(self):
-        log.msg("Cycling players down ...")
         players = self.players
         pos = self.player_pos
         pos += 1
@@ -588,11 +679,32 @@ class ChoosePlayerDialog(AbstractDialog):
         
 
     def _send_invite_to_player(self):
-        log.msg("Sending invite to player ...")
+        parent = self.parent
+        user_id = self.parent.user_id
+        my_entry = users.get_user_entry(user_id)
+        player = self.players[self.player_pos]
+        other_entry = users.get_user_entry(player)
+        if other_entry.invited_id is not None:
+            my_entry.app_protocol.send_invitation()
+            parent.output = "'{}' has already been invited to a session.".format(player)
+            self._cancel_dialog()
+            return
+        if other_entry.joined_id is not None:
+            my_entry.app_protocol.send_invitation()
+            parent.output = "'{}' has already joined a session.".format(player)
+            self._cancel_dialog()
+            return
+        other_entry.invited_id = my_entry.joined_id
+        other_entry.app_protocol.receive_invitation()
+        parent.output = "Sent invite to '{}'.".format(player)
+        my_entry.app_protocol.send_invitation()
+        self.parent.dialog = None
+        self.parent = None
 
     def _cancel_dialog(self):
         parent = self.parent
         self.parent.dialog = None
         self.parent = None
         parent.update_display()
+
 

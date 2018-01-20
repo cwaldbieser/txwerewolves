@@ -3,6 +3,7 @@ from __future__ import (
     absolute_import,
     print_function,
 )
+import weakref
 from txsshsvr import (
     lobby,
     users,
@@ -27,9 +28,10 @@ class SSHApplicationProtocol(TerminalProtocol):
         self._init_app_protocol()
 
     def keystrokeReceived(self, keyID, modifier):
-        log.msg("key_id: {}, modifier: {}".format(keyID, modifier))
         if keyID == self.CTRL_D:
             self.terminal.loseConnection()
+        elif keyID == 'R':
+            self.app_protocol.update_display()
         else:
             self.app_protocol.handle_input(keyID, modifier)
 
@@ -54,6 +56,7 @@ class SSHApplicationProtocol(TerminalProtocol):
         app_protocol.terminal = self.terminal
         app_protocol.user_id = self.user_id
         self.app_protocol = app_protocol
+        app_protocol.parent = weakref.ref(self)
         if need_init:
             app_protocol.initialize()
         else:
