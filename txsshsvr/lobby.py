@@ -79,6 +79,12 @@ class LobbyProtocol(object):
         """
 
     @_machine.input()
+    def create_session(self):
+        """
+        Send an invitation to another player.
+        """
+
+    @_machine.input()
     def send_invitation(self):
         """
         Send an invitation to another player.
@@ -176,7 +182,7 @@ class LobbyProtocol(object):
     # Transitions
     # -----------
     start.upon(initialize, enter=unjoined, outputs=[_enter_unjoined])
-    unjoined.upon(send_invitation, enter=waiting_for_accepts, outputs=[_enter_waiting_for_accepts])
+    unjoined.upon(create_session, enter=waiting_for_accepts, outputs=[_enter_waiting_for_accepts])
     unjoined.upon(receive_invitation, enter=invited, outputs=[_enter_invited])
     waiting_for_accepts.upon(start_session, enter=session_started, outputs=[_enter_session_started])
     waiting_for_accepts.upon(cancel, enter=unjoined, outputs=[_enter_unjoined])
@@ -459,6 +465,7 @@ class SSHLobbyProtocol(LobbyProtocol):
             user_entry.joined_id = session_entry.session_id
             session_entry.owner = this_player
             session_entry.members.add(this_player)
+            self.create_session()
         dialog = ChoosePlayerDialog()
         self.dialog = dialog
         self.dialog.parent = self
@@ -683,12 +690,10 @@ class ChoosePlayerDialog(AbstractDialog):
         player = self.players[self.player_pos]
         other_entry = users.get_user_entry(player)
         if other_entry.invited_id is not None:
-            my_entry.app_protocol.send_invitation()
             parent.output = "'{}' has already been invited to a session.".format(player)
             self._cancel_dialog()
             return
         if other_entry.joined_id is not None:
-            my_entry.app_protocol.send_invitation()
             parent.output = "'{}' has already joined a session.".format(player)
             self._cancel_dialog()
             return
