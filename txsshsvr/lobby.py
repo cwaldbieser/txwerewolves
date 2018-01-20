@@ -400,7 +400,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         proto.parent = self.parent
         self.parent().app_protocol = proto
         self.terminal.reset()
-        proto.update_display()
+        self.reactor.callLater(0, proto.update_display)
    
     def handle_invited(self):
         user_entry = users.get_user_entry(self.user_id)
@@ -646,7 +646,6 @@ class ChoosePlayerDialog(AbstractDialog):
         terminal.write(parent.DBORDER_VERTICAL)
         terminal.write(" " * (dialog_w - dialog_x))
         terminal.write(parent.DBORDER_VERTICAL)
-        
 
     def handle_input(self, key_id, modifiers):
         dialog_commands = {
@@ -677,7 +676,6 @@ class ChoosePlayerDialog(AbstractDialog):
         else:
             self.player_pos = pos
         
-
     def _send_invite_to_player(self):
         parent = self.parent
         user_id = self.parent.user_id

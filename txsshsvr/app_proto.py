@@ -13,14 +13,16 @@ from twisted.conch.insults.insults import TerminalProtocol
 from twisted.python import log
 from textwrap import dedent
 
-def makeSSHApplicationProtocol(user_id):
+def makeSSHApplicationProtocol(reactor, user_id):
     proto = SSHApplicationProtocol()
+    proto.reactor = reactor
     proto.user_id = user_id
     return proto
 
 
 class SSHApplicationProtocol(TerminalProtocol):
     CTRL_D = '\x04'
+    reactor = None
     user_id = None
 
     def connectionMade(self):
@@ -53,6 +55,7 @@ class SSHApplicationProtocol(TerminalProtocol):
             entry.app_protocol = app_protocol
             need_init = True
         app_protocol = entry.app_protocol
+        app_protocol.reactor = self.reactor
         app_protocol.terminal = self.terminal
         app_protocol.user_id = self.user_id
         self.app_protocol = app_protocol

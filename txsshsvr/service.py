@@ -20,7 +20,7 @@ from twisted.internet import endpoints, reactor
 
 class SSHService(Service):
     reactor = reactor
-    realm = auth.SSHRealm()
+    realmFactory = auth.SSHRealm
     endpointStr = 'tcp:2022'
     servicePrivateKey = 'ssh-keys/ssh_host_rsa_key'
     servicePublicKey = 'ssh-keys/ssh_host_rsa_key.pub'
@@ -53,16 +53,16 @@ class SSHService(Service):
         public key credential and pass it to the portal's `login` method.  It
         is at this point the public key checker can authenticate the credential.
 
-        The portal was also configured with `self.realm` which happens to be
-        an instance of :py:class:`auth.SSHRealm`.  This real creates an avatar
-        instance which will represent the user on the service side of the
-        connection.
+        The portal was also configured with `self.realmFactory` which happens
+        to produce an instance of :py:class:`auth.SSHRealm`.  This realm creates 
+        an avatar instance which will represent the user on the service side of
+        the connection.
 
         The avatar created will be an instance of :py:class:`auth.SSHAvatar`.
         This avatar is responsible for connecting the user to the service
         application logic.
         """
-        assert self.realm is not None, "`realm` must not be None!"
+        assert self.realmFactory is not None, "`realmFactory` must not be None!"
         with open(self.servicePrivateKey) as privateBlobFile:
             privateBlob = privateBlobFile.read()
             privateKey = Key.fromString(data=privateBlob)
@@ -72,7 +72,8 @@ class SSHService(Service):
         factory = SSHFactory()
         factory.privateKeys = {'ssh-rsa': privateKey}
         factory.publicKeys = {'ssh-rsa': publicKey}
-        sshRealm = self.realm
+        sshRealm = self.realmFactory()
+        sshRealm.reactor = self.reactor
         sshPortal = Portal(sshRealm)
         factory.portal = sshPortal
         with open(self.key_db_path, "r") as f:

@@ -36,6 +36,7 @@ class SSHAvatar(ConchUser):
     the underlying SSH session protocol.
     """
     implements(ISession)
+    reactor = None
 
     def __init__(self, user_id):
         ConchUser.__init__(self)
@@ -47,7 +48,8 @@ class SSHAvatar(ConchUser):
         self.ssh_protocol = None
 
     def openShell(self, protocol):
-        serverProto = ServerProtocol2(makeSSHApplicationProtocol, self.user_id)
+        serverProto = ServerProtocol2(
+            makeSSHApplicationProtocol, self.reactor, self.user_id)
         serverProto.makeConnection(protocol)
         protocol.makeConnection(wrapProtocol(serverProto))
         self.ssh_protocol = serverProto
@@ -77,10 +79,12 @@ class SSHAvatar(ConchUser):
 
 class SSHRealm(object):
     implements(IRealm)
+    reactor = None
     
     def requestAvatar(self, avatarId, mind, *interfaces):
         if IConchUser in interfaces:
             avatar = SSHAvatar(avatarId)
+            avatar.reactor = self.reactor
             entry = users.register_user(avatarId)
             if entry.avatar is not None:
                 shut_down_avatar(entry.avatar)
