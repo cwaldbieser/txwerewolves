@@ -21,6 +21,7 @@ class SessionRegistryInfo(object):
     session_id = attr.attrib()
     members = attr.attrib(default=attr.Factory(set))
     owner = attr.attrib(default=None)
+    game = attr.attrib(default=None)
 
 
 def create_session():

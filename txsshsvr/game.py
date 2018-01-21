@@ -10,16 +10,51 @@ import sys
 import textwrap
 import six
 from txsshsvr import graphics_chars as gchars
+from txsshsvr import (
+    session,
+    users,
+)
 from txsshsvr.werewolf import WerewolfGame
 
 
 class GameProtocol(object):
+    game = None
     user_id = None
 
 
 class SSHGameProtocol(GameProtocol):
     terminal = None
     term_size = (80, 24)
+    parent = None
+    commands = None
+    game = None
+
+    @classmethod
+    def make_protocol(klass, **kwds):
+        instance = klass()
+        for k, v in kwds.items():
+            setattr(instance, k, v)
+        instance.commands = {}
+        entry = users.get_user_entry(instance.user_id)
+        session_entry = session.get_entry(entry.joined_id)
+        players = session_entry.members
+        if session_entry.game is None:
+            game = WerewolfGame()
+            session_entry.game = game
+            game.add_players(players)
+            werewolf_count = 2
+            wg = WerewolfGame
+            other_roles = set([
+                wg.CARD_SEER,
+                wg.CARD_ROBBER,
+                wg.CARD_TROUBLEMAKER,
+                wg.CARD_MINION,
+                wg.CARD_INSOMNIAC,
+                wg.CARD_HUNTER,
+                wg.CARD_TANNER,
+            ])
+            game.deal_cards(werewolf_count, other_roles)
+        return instance
 
     def handle_input(self, key_id, modifier):
         """
@@ -64,18 +99,41 @@ class SSHGameProtocol(GameProtocol):
         terminal.write(gchars.DBORDER_DOWN_LEFT)
         terminal.write(gchars.DBORDER_HORIZONTAL * (tw - 2))
         terminal.write(gchars.DBORDER_DOWN_RIGHT)
-        title = " Werewolves! "
+        title = u"{} Werewolves! {}".format(
+            gchars.DHBORDER_UP_RIGHT,
+            gchars.DHBORDER_UP_LEFT)
         pos = (tw - len(title)) // 2
         terminal.cursorPosition(pos, 0)
         terminal.write(title)
+        underline = u"{}{}{}".format(
+            gchars.DOWN_LEFT_CORNER,
+            gchars.HORIZONTAL * (len(title) - 2),
+            gchars.DOWN_RIGHT_CORNER)
+        terminal.cursorPosition(pos, 1)
+        terminal.write(underline)
+        pos = tw // 2
+        terminal.cursorPosition(pos, 1)
+        terminal.write(gchars.T_UP)
         
     def _draw_player_area(self):
         """
-        Set the player name as the title of the window.
+        Show the player name and dealt role.
         """
         player = self.user_id
         terminal = self.terminal
         tw, th = self.term_size
+        maxrow = max(th // 3, 7)
+        terminal.cursorPosition(0, maxrow)
+        terminal.write(gchars.DVERT_T_LEFT)
+        terminal.write(gchars.HORIZONTAL * (tw - 2))
+        terminal.write(gchars.DVERT_T_RIGHT)
+        midway = tw // 2
+        terminal.cursorPosition(midway, 0)
+        terminal.cursorPosition(midway, maxrow)
+        terminal.write(gchars.T_DOWN) 
+        for n in range(2, maxrow):
+            terminal.cursorPosition(midway, n)
+            terminal.write(gchars.VERTICAL)
 
     def _draw_game_info_area(self):
         """

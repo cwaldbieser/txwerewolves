@@ -386,11 +386,11 @@ class SSHLobbyProtocol(LobbyProtocol):
     
     def handle_session_started(self):
         #proto = TodoProtocol()
-        proto = SSHGameProtocol()
-        proto.terminal = self.terminal
-        proto.term_size = self.term_size
-        proto.user_id = self.user_id
-        proto.parent = self.parent
+        proto = SSHGameProtocol.make_protocol(
+            user_id=self.user_id,
+            terminal=self.terminal,
+            term_size=self.term_size,
+            parent=self.parent)
         self.parent().app_protocol = proto
         self.terminal.reset()
         self.reactor.callLater(0, proto.update_display)
