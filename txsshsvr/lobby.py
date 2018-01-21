@@ -17,6 +17,8 @@ from twisted.conch.insults.text import (
 from twisted.internet import defer
 from twisted.python import log
 from txsshsvr.todo import TodoProtocol
+from txsshsvr.game import SSHGameProtocol
+from txsshsvr import graphics_chars as gchars
 
 
 class LobbyProtocol(object):
@@ -194,23 +196,6 @@ class LobbyProtocol(object):
 
 
 class SSHLobbyProtocol(LobbyProtocol):
-    DBORDER_UP_LEFT = unichr(0x2554)
-    DBORDER_UP_RIGHT = unichr(0x2557)
-    DBORDER_DOWN_LEFT = unichr(0x255A)
-    DBORDER_DOWN_RIGHT = unichr(0x255D)
-    DBORDER_VERTICAL = unichr(0x2551)
-    DBORDER_HORIZONTAL = unichr(0x2550)
-    DHBORDER_UP_LEFT = unichr(0x2552)
-    DHBORDER_UP_RIGHT = unichr(0x2555)
-    DHBORDER_DOWN_LEFT = unichr(0x2558)
-    DHBORDER_DOWN_RIGHT = unichr(0x255B)
-    DVERT_T_LEFT = unichr(0x255F)
-    DVERT_T_RIGHT = unichr(0x2562)
-    HORIZONTAL = unichr(0x2500)
-    VERTICAL = unichr(0x2502)
-    HORIZONTAL_DASHED = unichr(0x254C)
-    UP_ARROW = unichr(0x2B06)
-    DOWN_ARROW = unichr(0x2B07)
     parent = None
     terminal = None
     term_size = (80, 24)
@@ -245,18 +230,18 @@ class SSHLobbyProtocol(LobbyProtocol):
         terminal = self.terminal
         tw, th = self.term_size
         terminal.cursorHome()
-        terminal.write(self.DBORDER_UP_LEFT)
-        terminal.write(self.DBORDER_HORIZONTAL * (tw - 2))
-        terminal.write(self.DBORDER_UP_RIGHT)
+        terminal.write(gchars.DBORDER_UP_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (tw - 2))
+        terminal.write(gchars.DBORDER_UP_RIGHT)
         for n in range(1, th):
             terminal.cursorPosition(0, n)
-            terminal.write(self.DBORDER_VERTICAL)
+            terminal.write(gchars.DBORDER_VERTICAL)
             terminal.cursorPosition(tw-1, n)
-            terminal.write(self.DBORDER_VERTICAL)
+            terminal.write(gchars.DBORDER_VERTICAL)
         terminal.cursorPosition(0, th - 1)
-        terminal.write(self.DBORDER_DOWN_LEFT)
-        terminal.write(self.DBORDER_HORIZONTAL * (tw - 2))
-        terminal.write(self.DBORDER_DOWN_RIGHT)
+        terminal.write(gchars.DBORDER_DOWN_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (tw - 2))
+        terminal.write(gchars.DBORDER_DOWN_RIGHT)
         
     def _update_player_area(self):
         """
@@ -283,9 +268,9 @@ class SSHLobbyProtocol(LobbyProtocol):
         terminal = self.terminal
         tw, th = self.term_size
         terminal.cursorPosition(0, 2)
-        terminal.write(self.DVERT_T_LEFT)
-        terminal.write(self.HORIZONTAL * (tw - 2))
-        terminal.write(self.DVERT_T_RIGHT)
+        terminal.write(gchars.DVERT_T_LEFT)
+        terminal.write(gchars.HORIZONTAL * (tw - 2))
+        terminal.write(gchars.DVERT_T_RIGHT)
         status = self.status
         status_size = len(status)
         if status_size >= (tw - 2):
@@ -311,9 +296,9 @@ class SSHLobbyProtocol(LobbyProtocol):
         maxwidth = max(len(line) for line in instructions)
         pos = (tw - (maxwidth + 2)) // 2
         terminal.cursorPosition(pos, row)
-        terminal.write(self.DHBORDER_UP_LEFT)
-        terminal.write(self.DBORDER_HORIZONTAL * maxwidth)
-        terminal.write(self.DHBORDER_UP_RIGHT)
+        terminal.write(gchars.DHBORDER_UP_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * maxwidth)
+        terminal.write(gchars.DHBORDER_UP_RIGHT)
         title = "Instructions"
         terminal.cursorPosition((tw - len(title)) // 2, row)
         terminal.write(title)
@@ -322,15 +307,15 @@ class SSHLobbyProtocol(LobbyProtocol):
             if row > maxrow:
                 break
             terminal.cursorPosition(pos, row)
-            terminal.write(self.VERTICAL)
+            terminal.write(gchars.VERTICAL)
             terminal.write(line)
             terminal.cursorPosition(pos + maxwidth + 1, row)
-            terminal.write(self.VERTICAL)
+            terminal.write(gchars.VERTICAL)
             row += 1
         terminal.cursorPosition(pos, row)
-        terminal.write(self.DHBORDER_DOWN_LEFT)
-        terminal.write(self.DBORDER_HORIZONTAL * maxwidth)
-        terminal.write(self.DHBORDER_DOWN_RIGHT)
+        terminal.write(gchars.DHBORDER_DOWN_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * maxwidth)
+        terminal.write(gchars.DHBORDER_DOWN_RIGHT)
 
     def _show_output(self):
         """
@@ -341,9 +326,9 @@ class SSHLobbyProtocol(LobbyProtocol):
         output = self.output
         row = 15
         terminal.cursorPosition(0, row)
-        terminal.write(self.DVERT_T_LEFT)
-        terminal.write(self.HORIZONTAL_DASHED * (tw - 2))
-        terminal.write(self.DVERT_T_RIGHT)
+        terminal.write(gchars.DVERT_T_LEFT)
+        terminal.write(gchars.HORIZONTAL_DASHED * (tw - 2))
+        terminal.write(gchars.DVERT_T_RIGHT)
         if output is None:
             return
         textlines = output.split("\n")
@@ -400,8 +385,10 @@ class SSHLobbyProtocol(LobbyProtocol):
         self.update_display()
     
     def handle_session_started(self):
-        proto = TodoProtocol()
+        #proto = TodoProtocol()
+        proto = SSHGameProtocol()
         proto.terminal = self.terminal
+        proto.term_size = self.term_size
         proto.user_id = self.user_id
         proto.parent = self.parent
         self.parent().app_protocol = proto
@@ -589,16 +576,16 @@ class ChoosePlayerDialog(AbstractDialog):
         dialog_w = tw - 4
         pos = dialog_x
         terminal.cursorPosition(pos, row)
-        terminal.write(parent.DBORDER_UP_LEFT)
-        terminal.write(parent.DBORDER_HORIZONTAL * (tw - 6))
-        terminal.write(parent.DBORDER_UP_RIGHT)
+        terminal.write(gchars.DBORDER_UP_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (tw - 6))
+        terminal.write(gchars.DBORDER_UP_RIGHT)
         pos = (tw - len(title)) // 2
         terminal.cursorPosition(pos, row)
         terminal.write(title)
         msg = textwrap.dedent(u"""\
             {} - Scroll up       {}   - Scroll down
             i - invite player   q - cancel 
-            """).format(parent.UP_ARROW, parent.DOWN_ARROW).encode('utf-8')
+            """).format(gchars.UP_ARROW, gchars.DOWN_ARROW).encode('utf-8')
         textlines = msg.split("\n")
         termlines = []
         for textline in textlines:
@@ -639,9 +626,9 @@ class ChoosePlayerDialog(AbstractDialog):
         row += 1
         pos = dialog_x
         terminal.cursorPosition(pos, row)
-        terminal.write(parent.DBORDER_DOWN_LEFT)
-        terminal.write(parent.DBORDER_HORIZONTAL * (tw - 6))
-        terminal.write(parent.DBORDER_DOWN_RIGHT)
+        terminal.write(gchars.DBORDER_DOWN_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (tw - 6))
+        terminal.write(gchars.DBORDER_DOWN_RIGHT)
         
     def _blank_dialog_line(self, row):
         parent = self.parent
@@ -650,9 +637,9 @@ class ChoosePlayerDialog(AbstractDialog):
         dialog_x = 2
         dialog_w = tw - 4
         terminal.cursorPosition(dialog_x, row)
-        terminal.write(parent.DBORDER_VERTICAL)
+        terminal.write(gchars.DBORDER_VERTICAL)
         terminal.write(" " * (dialog_w - dialog_x))
-        terminal.write(parent.DBORDER_VERTICAL)
+        terminal.write(gchars.DBORDER_VERTICAL)
 
     def handle_input(self, key_id, modifiers):
         dialog_commands = {
