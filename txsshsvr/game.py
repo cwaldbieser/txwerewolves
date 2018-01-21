@@ -15,6 +15,10 @@ from txsshsvr import (
     users,
 )
 from txsshsvr.werewolf import WerewolfGame
+from twisted.conch.insults.text import (
+    attributes as A,
+    assembleFormattedText,
+)
 
 
 class GameProtocol(object):
@@ -41,6 +45,7 @@ class SSHGameProtocol(GameProtocol):
         if session_entry.game is None:
             game = WerewolfGame()
             session_entry.game = game
+            session_entry.game = game
             game.add_players(players)
             werewolf_count = 2
             wg = WerewolfGame
@@ -54,6 +59,7 @@ class SSHGameProtocol(GameProtocol):
                 wg.CARD_TANNER,
             ])
             game.deal_cards(werewolf_count, other_roles)
+        instance.game = session_entry.game
         return instance
 
     def handle_input(self, key_id, modifier):
@@ -104,7 +110,13 @@ class SSHGameProtocol(GameProtocol):
             gchars.DHBORDER_UP_LEFT)
         pos = (tw - len(title)) // 2
         terminal.cursorPosition(pos, 0)
-        terminal.write(title)
+        emca48 = A.bold[
+            -A.bold[gchars.DHBORDER_UP_RIGHT.encode('utf-8')],
+            " Werewolves! ", 
+            -A.bold[gchars.DHBORDER_UP_LEFT.encode('utf-8')]]
+        text = assembleFormattedText(emca48)
+        terminal.write(text)
+        #terminal.write(title)
         underline = u"{}{}{}".format(
             gchars.DOWN_LEFT_CORNER,
             gchars.HORIZONTAL * (len(title) - 2),
@@ -114,14 +126,6 @@ class SSHGameProtocol(GameProtocol):
         pos = tw // 2
         terminal.cursorPosition(pos, 1)
         terminal.write(gchars.T_UP)
-        
-    def _draw_player_area(self):
-        """
-        Show the player name and dealt role.
-        """
-        player = self.user_id
-        terminal = self.terminal
-        tw, th = self.term_size
         maxrow = max(th // 3, 7)
         terminal.cursorPosition(0, maxrow)
         terminal.write(gchars.DVERT_T_LEFT)
@@ -134,6 +138,29 @@ class SSHGameProtocol(GameProtocol):
         for n in range(2, maxrow):
             terminal.cursorPosition(midway, n)
             terminal.write(gchars.VERTICAL)
+        self._h_part_row_0 = maxrow
+        self._midway = midway
+        
+    def _draw_player_area(self):
+        """
+        Show the player name and dealt role.
+        """
+        player = self.user_id
+        terminal = self.terminal
+        tw, th = self.term_size
+        terminal.cursorPosition(2, 3)
+        truncated_player = player[:10]
+        emca48 = A.bold["Player: ", -A.bold[truncated_player]]
+        text = assembleFormattedText(emca48)
+        terminal.write(text)
+        terminal.cursorPosition(2, 4)
+        game = self.game
+        player_cards = game.query_player_cards()
+        card = player_cards[player]
+        card_name = WerewolfGame.get_card_name(card)
+        emca48 = A.bold["Dealt role: ", -A.bold[card_name]]
+        text = assembleFormattedText(emca48)
+        terminal.write(text)
 
     def _draw_game_info_area(self):
         """
