@@ -120,7 +120,6 @@ class SSHGameProtocol(GameProtocol):
             -A.bold[gchars.DHBORDER_UP_LEFT.encode('utf-8')]]
         text = assembleFormattedText(emca48)
         terminal.write(text)
-        #terminal.write(title)
         underline = u"{}{}{}".format(
             gchars.DOWN_LEFT_CORNER,
             gchars.HORIZONTAL * (len(title) - 2),
@@ -130,7 +129,7 @@ class SSHGameProtocol(GameProtocol):
         pos = tw // 2
         terminal.cursorPosition(pos, 1)
         terminal.write(gchars.T_UP)
-        maxrow = max(th // 3, 7)
+        maxrow = max(th // 2, 7)
         terminal.cursorPosition(0, maxrow)
         terminal.write(gchars.DVERT_T_LEFT)
         terminal.write(gchars.HORIZONTAL * (tw - 2))
@@ -138,11 +137,16 @@ class SSHGameProtocol(GameProtocol):
         midway = tw // 2
         terminal.cursorPosition(midway, 0)
         terminal.cursorPosition(midway, maxrow)
-        terminal.write(gchars.T_DOWN) 
+        terminal.write(gchars.CROSS) 
         for n in range(2, maxrow):
             terminal.cursorPosition(midway, n)
             terminal.write(gchars.VERTICAL)
-        self._h_part_row_0 = maxrow
+        for n in range(maxrow + 1, th):
+            terminal.cursorPosition(midway, n)
+            terminal.write(gchars.VERTICAL)
+        terminal.cursorPosition(midway, th)
+        terminal.write(gchars.DHORIZ_T_DOWN) 
+        self._equator = maxrow
         self._midway = midway
         
     def _draw_player_area(self):
@@ -172,6 +176,7 @@ class SSHGameProtocol(GameProtocol):
         """
         terminal = self.terminal
         tw, th = self.term_size
+        equator = self._equator
         game = self.game
         cards = game.query_cards()
         card_counts = collections.Counter()
@@ -194,7 +199,7 @@ class SSHGameProtocol(GameProtocol):
         terminal.cursorPosition(pos, row)
         terminal.write(text)
         # table
-        row += 2
+        row += 1
         pos = midway + 2
         lit = lambda s: A.reverseVideo[s, -A.reverseVideo[""]]
         unlit = lambda s: -A.reverseVideo[s]
@@ -212,6 +217,9 @@ class SSHGameProtocol(GameProtocol):
             log.msg("card name: {}, more: {}".format(card_name, more))
             row += 1
             terminal.cursorPosition(pos, row)
+            if row == (equator - 1):
+                terminal.write("more ...")
+                break
             if more:
                 u = lambda x: x
             else:
