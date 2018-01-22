@@ -9,6 +9,10 @@ import itertools
 import sys
 import textwrap
 import six
+from six.moves import (
+    zip,
+)
+from twisted.python import log
 from txsshsvr import graphics_chars as gchars
 from txsshsvr import (
     session,
@@ -168,6 +172,57 @@ class SSHGameProtocol(GameProtocol):
         """
         terminal = self.terminal
         tw, th = self.term_size
+        game = self.game
+        cards = game.query_cards()
+        card_counts = collections.Counter()
+        for card in cards:
+            card_name = WerewolfGame.get_card_name(card)
+            card_counts[card_name] += 1
+        card_counts = card_counts.items()
+        card_counts.sort()
+        col_width = max(len(n) for n, c in card_counts) + 3
+        count_width = 3
+        # heading
+        row = 1
+        heading = "Cards Used in the Game"
+        emca48 = A.bold[heading, -A.bold[""]]
+        text = assembleFormattedText(emca48)
+        midway = tw // 2
+        frame_length = tw - midway
+        frame_midway = (frame_length // 2) + midway
+        pos = ((frame_length - len(heading)) // 2) + midway
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+        # table
+        row += 2
+        pos = midway + 2
+        lit = lambda s: A.reverseVideo[s, -A.reverseVideo[""]]
+        unlit = lambda s: -A.reverseVideo[s]
+        attribs = itertools.cycle([lit, unlit])
+        table_width = col_width + 1 + 5
+        pos = midway + ((frame_length - table_width) // 2)
+        row += 1
+        headers = "{} {}".format("Card".ljust(col_width), "Count")
+        emca48 = A.underline[headers, -A.underline[""]]
+        text = assembleFormattedText(emca48)
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+        g = peek_ahead(zip(card_counts, attribs))
+        for ((card_name, count), highlight), more in g:
+            log.msg("card name: {}, more: {}".format(card_name, more))
+            row += 1
+            terminal.cursorPosition(pos, row)
+            if more:
+                u = lambda x: x
+            else:
+                u = lambda x: A.underline[x, -A.underline[""]] 
+            emca48 = u(highlight(card_name.rjust(col_width)))
+            text = assembleFormattedText(emca48)
+            terminal.write(text)
+            terminal.write(" ")
+            emca48 = u(highlight(str(count).rjust(5)))
+            text = assembleFormattedText(emca48)
+            terminal.write(text)
 
     def _draw_phase_area(self):
         """
@@ -835,3 +890,19 @@ if __name__ == "__main__":
         parser.error(str(ex))
     curses.wrapper(main, args)
 
+def peek_ahead(iterable):
+    """
+    yield (value, more) from an iterable where `more` is a boolean value that
+    indicates if there is another value yet to be yielded.
+    """
+    flag = False
+    prev_value = None
+    for value in iterable:
+        if not flag:
+            flag = True
+            prev_value = value
+            continue
+        yield (prev_value, True)
+        prev_value = value
+    yield (prev_value, False)
+        
