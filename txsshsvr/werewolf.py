@@ -372,6 +372,11 @@ class WerewolfGame(object):
         self._active_roles = frozenset(deck)
 
     @_machine.output()
+    def _handle_cards_dealt(self, werewolf_count=2, roles=frozenset([
+            CARD_SEER, CARD_ROBBER, CARD_TROUBLEMAKER])):
+        self.handle_cards_dealt()
+
+    @_machine.output()
     def _query_cards(self):
         cards = self._player_cards.values()
         cards.extend(self._table_cards)
@@ -512,18 +517,28 @@ class WerewolfGame(object):
             table_cards=list(self._new_table_cards),
             orig_table_cards=list(self._table_cards))
         return pgi
+    
+    @_machine.output()
+    def _handle_daybreak(self):
+        self.handle_daybreak()
+
+    @_machine.output()
+    def _handle_endgame(self, players):
+        self.handle_endgame()
 
     # `_set_XXX_phase` output for each night phase.
     for info in night_phases:
       
-        def make_func(card): 
+        def make_func(card, tag): 
 
             def func(self):
                 self._active_card = card
+                f = getattr(self, 'handle_{}_phase'.format(tag))
+                f()
 
             return func 
 
-        func = make_func(info.card)
+        func = make_func(info.card, info.tag)
         func_name = '_set_{}_phase'.format(info.tag)
         func.__name__ = func_name
         func = _machine.output()(func)
@@ -533,8 +548,14 @@ class WerewolfGame(object):
     # Transitions
     # -----------
 
-    dont_have_players.upon(add_players, enter=have_players, outputs=[_set_players]) 
-    have_players.upon(deal_cards, enter=cards_dealt, outputs=[_map_cards])
+    dont_have_players.upon(
+        add_players, 
+        enter=have_players, 
+        outputs=[_set_players]) 
+    have_players.upon(
+        deal_cards, 
+        enter=cards_dealt, 
+        outputs=[_map_cards, _handle_cards_dealt])
     cards_dealt.upon(
         query_player_cards, 
         enter=cards_dealt, 
@@ -589,7 +610,7 @@ class WerewolfGame(object):
     insomniac_phase.upon(
         advance_phase,
         enter=daybreak,
-        outputs=[])
+        outputs=[_handle_daybreak])
     werewolf_phase.upon(
         identify_werewolves,
         enter=werewolf_phase,
@@ -632,7 +653,7 @@ class WerewolfGame(object):
     daybreak.upon(
         eliminate_players,
         enter=endgame,
-        outputs=[_eliminate_players])
+        outputs=[_eliminate_players, _handle_endgame])
     endgame.upon(
         query_post_game_results,
         enter=endgame,
@@ -678,6 +699,41 @@ class WerewolfGame(object):
             outputs=[_is_player_active],
             collector=lambda x: x[-1])
 
+    # --------------
+    # Event handlers
+    # --------------
+
+    def handle_cards_dealt(self):
+        """
+        Called after cards have been dealt.
+        """
+        pass
+
+    def handle_daybreak(self):
+        """
+        Called when the daybreak phase has been entered.
+        """
+        pass
+
+    def handle_endgame(self):
+        """
+        Called when the endgame phase has been entered.
+        """
+        pass
+
+    # Create `handle_xxx_phase()` handlers.
+    for info in night_phases:
+      
+        def handler(self):
+            pass
+
+        func = handler
+        func_name = 'handle_{}_phase'.format(info.tag)
+        func.__name__ = func_name
+        vars()[func_name] = func
+
+    # ------------------------ 
     # Remove extra class info.
+    # ------------------------ 
     del night_phases
- 
+

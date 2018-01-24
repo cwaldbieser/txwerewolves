@@ -25,6 +25,18 @@ from twisted.conch.insults.text import (
 )
 
 
+class HandledWerewolfGame(WerewolfGame):
+
+    def handle_cards_dealt(self):
+        log.msg("Cards have been dealt.")
+
+    def handle_werewolf_phasse(self):
+        log.msg("Entered the werewolf phase.")
+
+    def handle_minion_phasse(self):
+        log.msg("Entered the minion phase.")
+
+
 class GameProtocol(object):
     game = None
     user_id = None
@@ -47,7 +59,7 @@ class SSHGameProtocol(GameProtocol):
         session_entry = session.get_entry(entry.joined_id)
         players = session_entry.members
         if session_entry.game is None:
-            game = WerewolfGame()
+            game = HandledWerewolfGame()
             session_entry.game = game
             session_entry.game = game
             game.add_players(players)
@@ -214,7 +226,6 @@ class SSHGameProtocol(GameProtocol):
         terminal.write(text)
         g = peek_ahead(zip(card_counts, attribs))
         for ((card_name, count), highlight), more in g:
-            log.msg("card name: {}, more: {}".format(card_name, more))
             row += 1
             terminal.cursorPosition(pos, row)
             if row == (equator - 1):
