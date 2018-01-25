@@ -71,7 +71,7 @@ class HandledWerewolfGame(WerewolfGame):
         for player in members:
             user_entry = users.get_user_entry(player)
             app_protocol = user_entry.app_protocol
-            app_protocol.reactor.callLater(0, app_protocol.update_display)
+            app_protocol.reactor.callLater(0, app_protocol.handle_next_phase)
 
     def set_wait_list(self):
         """
@@ -105,6 +105,7 @@ class SSHGameProtocol(GameProtocol):
     game = None
     player_cards = None
     cards = None
+    _ready_to_advance = False
 
     @classmethod
     def make_protocol(klass, **kwds):
@@ -131,7 +132,8 @@ class SSHGameProtocol(GameProtocol):
                 wg.CARD_HUNTER,
                 wg.CARD_TANNER,
             ])
-            game.deal_cards(werewolf_count, other_roles)
+            instance.reactor.callLater(
+                0, game.deal_cards, werewolf_count, other_roles)
         instance.game = session_entry.game
         return instance
 
@@ -159,6 +161,10 @@ class SSHGameProtocol(GameProtocol):
         self._draw_game_info_area()
         self._draw_phase_area()
         terminal.cursorPosition(0, th - 1)
+
+    def handle_next_phase(self):
+        self._ready_to_advance = False
+        self.update_display()
 
     def _draw_border(self):
         """
@@ -318,7 +324,7 @@ class SSHGameProtocol(GameProtocol):
             self.commands = {'*': self._signal_advance}
         elif phase == game.PHASE_WEREWOLVES:
             self._draw_werewolves()
-            self.commands = {'\n': self._signal_advance}
+            self.commands = {'\r': self._signal_advance}
         self._display_time_remaining()
 
     def _draw_twilight(self):
@@ -350,7 +356,10 @@ class SSHGameProtocol(GameProtocol):
                 break
             terminal.write(line)
         row = th - 2
-        heading = "Press a key to continue ..."
+        if self._ready_to_advance:
+            heading = "Waiting for other players ..."
+        else:
+            heading = "Press a key to continue ..."
         pos = (frame_w - len(heading)) // 2
         terminal.cursorPosition(pos, row)
         terminal.write(heading)
@@ -384,7 +393,10 @@ class SSHGameProtocol(GameProtocol):
                 break
             terminal.write(line)
         row = th - 2
-        heading = "Press ENTER to continue ..."
+        if self._ready_to_advance:
+            heading = "Waiting for other players ..."
+        else:
+            heading = "Press ENTER to continue ..."
         pos = (frame_w - len(heading)) // 2
         terminal.cursorPosition(pos, row)
         terminal.write(heading)
@@ -436,6 +448,7 @@ class SSHGameProtocol(GameProtocol):
         """
         user_id = self.user_id
         self.game.signal_advance(user_id)
+        self._ready_to_advance = True
 
 def wrap_paras(text, width):
     """
