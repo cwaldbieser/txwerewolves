@@ -38,6 +38,7 @@ class HandledWerewolfGame(WerewolfGame):
 
     phase = None
     session_id = None
+    wait_list = None
 
     # --------------
     # Event handlers
@@ -46,10 +47,14 @@ class HandledWerewolfGame(WerewolfGame):
     def handle_cards_dealt(self):
         log.msg("Cards have been dealt.")
         self.phase = self.PHASE_TWILIGHT
+        self.set_wait_list()
         self.notify_players()
 
     def handle_werewolf_phase(self):
         log.msg("Entered the werewolf phase.")
+        self.phase = self.PHASE_WEREWOLVES
+        self.set_wait_list()
+        self.notify_players()
 
     def handle_minion_phase(self):
         log.msg("Entered the minion phase.")
@@ -67,6 +72,23 @@ class HandledWerewolfGame(WerewolfGame):
             user_entry = users.get_user_entry(player)
             app_protocol = user_entry.app_protocol
             app_protocol.reactor.callLater(0, app_protocol.update_display)
+
+    def set_wait_list(self):
+        """
+        Wait until all players have signaled it is OK to advance.
+        """
+        session_entry = session.get_entry(self.session_id)
+        members = session_entry.members
+        self.wait_list = set(members)
+
+    def signal_advance(self, player):
+        """
+        A player has indicated it is OK to advance to the next phase.
+        """
+        wait_list = self.wait_list
+        wait_list.discard(player)
+        if len(wait_list) == 0:
+            self.advance_phase()
             
     
 class GameProtocol(object):
@@ -81,6 +103,8 @@ class SSHGameProtocol(GameProtocol):
     parent = None
     commands = None
     game = None
+    player_cards = None
+    cards = None
 
     @classmethod
     def make_protocol(klass, **kwds):
@@ -117,7 +141,9 @@ class SSHGameProtocol(GameProtocol):
         """ 
         func = self.commands.get(key_id)
         if func is None:
-            return
+            func = self.commands.get('*', None)
+            if func is None:
+                return
         func()
         self.update_display() 
 
@@ -132,7 +158,6 @@ class SSHGameProtocol(GameProtocol):
         self._draw_player_area()
         self._draw_game_info_area()
         self._draw_phase_area()
-        self._show_output()
         terminal.cursorPosition(0, th - 1)
 
     def _draw_border(self):
@@ -208,7 +233,9 @@ class SSHGameProtocol(GameProtocol):
         terminal.write(text)
         terminal.cursorPosition(2, 4)
         game = self.game
-        player_cards = game.query_player_cards()
+        if self.player_cards is None:
+            self.player_cards = game.query_player_cards()
+        player_cards = self.player_cards
         card = player_cards[player]
         card_name = WerewolfGame.get_card_name(card)
         emca48 = A.bold["Dealt role: ", -A.bold[card_name]]
@@ -223,7 +250,9 @@ class SSHGameProtocol(GameProtocol):
         tw, th = self.term_size
         equator = self._equator
         game = self.game
-        cards = game.query_cards()
+        if self.cards is None:
+            self.cards = game.query_cards()
+        cards = self.cards
         card_counts = collections.Counter()
         for card in cards:
             card_name = WerewolfGame.get_card_name(card)
@@ -286,16 +315,11 @@ class SSHGameProtocol(GameProtocol):
         phase = game.phase
         if phase == game.PHASE_TWILIGHT:
             self._draw_twilight()
+            self.commands = {'*': self._signal_advance}
         elif phase == game.PHASE_WEREWOLVES:
             self._draw_werewolves()
+            self.commands = {'\n': self._signal_advance}
         self._display_time_remaining()
-
-    def _show_output(self):
-        """
-        Show output.
-        """
-        terminal = self.terminal
-        tw, th = self.term_size
 
     def _draw_twilight(self):
         """
@@ -308,7 +332,7 @@ class SSHGameProtocol(GameProtocol):
         frame_w = tw - midway
         row = equator + 1
         title = "Twilight"
-        pos = midway + (frame_w - len(title)) // 2
+        pos = (frame_w - len(title)) // 2
         emca48 = A.bold[title, -A.bold[""]]
         text = assembleFormattedText(emca48)
         terminal.cursorPosition(pos, row)
@@ -316,7 +340,7 @@ class SSHGameProtocol(GameProtocol):
         msg = """The village has been invaded by ghastly werewolves!  These bloodthirsty shape changers want to take over the village.  But the villagers know they are weakest at daybreak, and that is when they will strike at their enemy.  In this game, you will take on the role of a villager or a werewolf.  At daybreak, the entire village votes on who lives and who dies.  If a werewolf is slain, the villagers win.  If no werewolves are slain, the werewolf team wins.  If no players are werewolves, the villagers only win if no one dies."""
         lines = wrap_paras(msg, frame_w - 4) 
         maxlen = max(len(line) for line in lines)
-        pos = midway + (frame_w - maxlen) // 2
+        pos = (frame_w - maxlen) // 2
         row += 1
         for line in lines:
             row += 1
@@ -327,13 +351,91 @@ class SSHGameProtocol(GameProtocol):
             terminal.write(line)
         row = th - 2
         heading = "Press a key to continue ..."
-        pos = midway + (frame_w - len(heading)) // 2
+        pos = (frame_w - len(heading)) // 2
         terminal.cursorPosition(pos, row)
         terminal.write(heading)
+
+    def _draw_werewolves(self):
+        """
+        Show the werewolves phase info.
+        """
+        terminal = self.terminal
+        tw, th = self.term_size
+        midway = tw // 2
+        equator = th // 2
+        frame_w = tw - midway
+        row = equator + 1
+        title = "Werewolf Phase"
+        pos = (frame_w - len(title)) // 2
+        emca48 = A.bold[title, -A.bold[""]]
+        text = assembleFormattedText(emca48)
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+        msg = """During this phase, all werewolves open their eyes and look at each other."""
+        lines = wrap_paras(msg, frame_w - 4) 
+        maxlen = max(len(line) for line in lines)
+        pos = (frame_w - maxlen) // 2
+        row += 1
+        for line in lines:
+            row += 1
+            terminal.cursorPosition(pos, row)
+            if row == (th - 4):
+                terminal.write("...")
+                break
+            terminal.write(line)
+        row = th - 2
+        heading = "Press ENTER to continue ..."
+        pos = (frame_w - len(heading)) // 2
+        terminal.cursorPosition(pos, row)
+        terminal.write(heading)
+        game = self.game
+        if not game.is_player_active(self.user_id):
+            self._display_sleeping()
+        else:
+            werewolves = game.identify_werewolves()
+            werewolves = list(werewolves)
+            werewolves.sort()
+            row = equator + 1
+            pos = midway + 2
+            msg = '''You look around and see other werewolves ...'''
+            lines = wrap_paras(msg, frame_w - 4)
+            for line in lines:
+                row += 1
+                terminal.cursorPosition(pos, row)
+                terminal.write(line)
+            for player in werewolves:
+                row += 1
+                terminal.cursorPosition(pos, row)
+                if row == (th - 2):
+                    terminal.write("...")
+                    break
+                terminal.write(player)
+
+    def _display_sleeping(self):
+        """
+        Display output that player is sleeping during this phase.
+        """
+        terminal = self.terminal
+        tw, th = self.term_size
+        midway = tw // 2
+        equator = th // 2
+        frame_w = tw - midway
+        row = equator + 1
+        msg = '''Zzzzz ...  You are sleeping.'''
+        pos = midway + (frame_w - len(msg)) // 2
+        terminal.cursorPosition(pos, row)
+        terminal.write(msg)
 
     def _display_time_remaining(self):
         log.msg("TODO: display_time_remaining()")
 
+    def _signal_advance(self):
+        """
+        Tell the game that this player has signaled it is OK to advance
+        to the next phase.
+        """
+        user_id = self.user_id
+        self.game.signal_advance(user_id)
 
 def wrap_paras(text, width):
     """
