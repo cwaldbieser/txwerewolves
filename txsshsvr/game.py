@@ -26,23 +26,56 @@ from twisted.conch.insults.text import (
 
 
 class HandledWerewolfGame(WerewolfGame):
+    PHASE_TWILIGHT = 0
+    PHASE_WEREWOLVES = 10
+    PHASE_MINION = 20
+    PHASE_SEER = 30
+    PHASE_ROBBER = 40
+    PHASE_TROUBLEMAKER = 50
+    PHASE_INSOMNIAC = 60
+    PHASE_DAYBREAK = 70
+    PHASE_ENDGAME = 80
+
+    phase = None
+    session_id = None
+
+    # --------------
+    # Event handlers
+    # --------------
 
     def handle_cards_dealt(self):
         log.msg("Cards have been dealt.")
+        self.phase = self.PHASE_TWILIGHT
+        self.notify_players()
 
-    def handle_werewolf_phasse(self):
+    def handle_werewolf_phase(self):
         log.msg("Entered the werewolf phase.")
 
-    def handle_minion_phasse(self):
+    def handle_minion_phase(self):
         log.msg("Entered the minion phase.")
 
+    # ---
 
+    def notify_players(self):
+        """
+        Notify all connected players that a change in game state has occured
+        and they should update their UIs.
+        """
+        session_entry = session.get_entry(self.session_id)
+        members = session_entry.members
+        for player in members:
+            user_entry = users.get_user_entry(player)
+            app_protocol = user_entry.app_protocol
+            app_protocol.reactor.callLater(0, app_protocol.update_display)
+            
+    
 class GameProtocol(object):
     game = None
     user_id = None
 
 
 class SSHGameProtocol(GameProtocol):
+    reactor = None
     terminal = None
     term_size = (80, 24)
     parent = None
@@ -61,7 +94,7 @@ class SSHGameProtocol(GameProtocol):
         if session_entry.game is None:
             game = HandledWerewolfGame()
             session_entry.game = game
-            session_entry.game = game
+            game.session_id = session_entry.session_id
             game.add_players(players)
             werewolf_count = 2
             wg = WerewolfGame
@@ -249,6 +282,13 @@ class SSHGameProtocol(GameProtocol):
         """
         terminal = self.terminal
         tw, th = self.term_size
+        game = self.game
+        phase = game.phase
+        if phase == game.PHASE_TWILIGHT:
+            self._draw_twilight()
+        elif phase == game.PHASE_WEREWOLVES:
+            self._draw_werewolves()
+        self._display_time_remaining()
 
     def _show_output(self):
         """
@@ -256,6 +296,54 @@ class SSHGameProtocol(GameProtocol):
         """
         terminal = self.terminal
         tw, th = self.term_size
+
+    def _draw_twilight(self):
+        """
+        Display game instructions.
+        """
+        terminal = self.terminal
+        tw, th = self.term_size
+        midway = tw // 2
+        equator = th // 2
+        frame_w = tw - midway
+        row = equator + 1
+        title = "Twilight"
+        pos = midway + (frame_w - len(title)) // 2
+        emca48 = A.bold[title, -A.bold[""]]
+        text = assembleFormattedText(emca48)
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+        msg = """The village has been invaded by ghastly werewolves!  These bloodthirsty shape changers want to take over the village.  But the villagers know they are weakest at daybreak, and that is when they will strike at their enemy.  In this game, you will take on the role of a villager or a werewolf.  At daybreak, the entire village votes on who lives and who dies.  If a werewolf is slain, the villagers win.  If no werewolves are slain, the werewolf team wins.  If no players are werewolves, the villagers only win if no one dies."""
+        lines = wrap_paras(msg, frame_w - 4) 
+        maxlen = max(len(line) for line in lines)
+        pos = midway + (frame_w - maxlen) // 2
+        row += 1
+        for line in lines:
+            row += 1
+            terminal.cursorPosition(pos, row)
+            if row == (th - 4):
+                terminal.write("...")
+                break
+            terminal.write(line)
+        row = th - 2
+        heading = "Press a key to continue ..."
+        pos = midway + (frame_w - len(heading)) // 2
+        terminal.cursorPosition(pos, row)
+        terminal.write(heading)
+
+    def _display_time_remaining(self):
+        log.msg("TODO: display_time_remaining()")
+
+
+def wrap_paras(text, width):
+    """
+    textwrap.wrap() for multiple paragraphs.
+    """
+    paras = text.split("\n")
+    lines = []
+    for para in paras:
+        lines.extend(textwrap.wrap(para, width, drop_whitespace=False))
+    return lines
 
 def main(stdscr, args):
     """

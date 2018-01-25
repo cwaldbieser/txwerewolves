@@ -390,10 +390,13 @@ class SSHLobbyProtocol(LobbyProtocol):
             user_id=self.user_id,
             terminal=self.terminal,
             term_size=self.term_size,
-            parent=self.parent)
+            parent=self.parent,
+            reactor=self.reactor)
         self.parent().app_protocol = proto
         self.terminal.reset()
         self.reactor.callLater(0, proto.update_display)
+        user_entry = users.get_user_entry(self.user_id)
+        user_entry.app_protocol = proto
    
     def handle_invited(self):
         user_entry = users.get_user_entry(self.user_id)
