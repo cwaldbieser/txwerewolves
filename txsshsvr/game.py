@@ -58,6 +58,10 @@ class HandledWerewolfGame(WerewolfGame):
 
     def handle_minion_phase(self):
         log.msg("Entered the minion phase.")
+        self.phase = self.PHASE_MINION
+        self.set_wait_list()
+        self.notify_players()
+    
 
     # ---
 
@@ -325,6 +329,9 @@ class SSHGameProtocol(GameProtocol):
         elif phase == game.PHASE_WEREWOLVES:
             self._draw_werewolves()
             self.commands = {'\r': self._signal_advance}
+        elif phase == game.PHASE_MINION:
+            self._draw_minion()
+            self.commands = {'\r': self._signal_advance}
         self._display_time_remaining()
 
     def _draw_twilight(self):
@@ -368,19 +375,34 @@ class SSHGameProtocol(GameProtocol):
         """
         Show the werewolves phase info.
         """
+        title = "Werewolf Phase"
+        msg = """During this phase, all werewolves open their eyes and look at each other."""
+        look_msg = '''You look around and see other werewolves ...'''
+        self._impl_werewolf_minion(title, msg, look_msg)
+
+    def _draw_minion(self):
+        """
+        Show the minion phase info.
+        """
+        title = "Minion Phase"
+        msg = (
+            "During this phase, the minion opens his eyes and sees the"
+            " werewolves, but they cannot see the minion.")
+        look_msg = '''You look around for werewolves ...'''
+        self._impl_werewolf_minion(title, msg, look_msg)
+
+    def _impl_werewolf_minion(self, title, msg, look_msg):
         terminal = self.terminal
         tw, th = self.term_size
         midway = tw // 2
         equator = th // 2
         frame_w = tw - midway
         row = equator + 1
-        title = "Werewolf Phase"
         pos = (frame_w - len(title)) // 2
         emca48 = A.bold[title, -A.bold[""]]
         text = assembleFormattedText(emca48)
         terminal.cursorPosition(pos, row)
         terminal.write(text)
-        msg = """During this phase, all werewolves open their eyes and look at each other."""
         lines = wrap_paras(msg, frame_w - 4) 
         maxlen = max(len(line) for line in lines)
         pos = (frame_w - maxlen) // 2
@@ -409,8 +431,7 @@ class SSHGameProtocol(GameProtocol):
             werewolves.sort()
             row = equator + 1
             pos = midway + 2
-            msg = '''You look around and see other werewolves ...'''
-            lines = wrap_paras(msg, frame_w - 4)
+            lines = wrap_paras(look_msg, frame_w - 4)
             for line in lines:
                 row += 1
                 terminal.cursorPosition(pos, row)
