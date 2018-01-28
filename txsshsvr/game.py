@@ -6,6 +6,7 @@ from __future__ import (
 )
 import collections
 import itertools
+import random
 import sys
 import textwrap
 import six
@@ -39,6 +40,9 @@ class HandledWerewolfGame(WerewolfGame):
     phase = None
     session_id = None
     wait_list = None
+    power_activated = False
+    seer_viewed_table_cards = None
+    seer_viewed_player_card = None
 
     # --------------
     # Event handlers
@@ -62,8 +66,48 @@ class HandledWerewolfGame(WerewolfGame):
         self.set_wait_list()
         self.notify_players()
     
+    def handle_seer_phase(self):
+        log.msg("Entered the seer phase.")
+        self.phase = self.PHASE_SEER
+        self.power_activated = False
+        self.set_wait_list()
+        self.notify_players()
+    
+    def handle_robber_phase(self):
+        log.msg("Entered the robber phase.")
+        self.phase = self.PHASE_ROBBER
+        self.power_activated = False
+        self.set_wait_list()
+        self.notify_players()
+    
+    def handle_troublemaker_phase(self):
+        log.msg("Entered the troublemaker phase.")
+        self.phase = self.PHASE_TROUBLEMAKER
+        self.power_activated = False
+        self.set_wait_list()
+        self.notify_players()
+    
+    def handle_insomniac_phase(self):
+        log.msg("Entered the insomniac phase.")
+        self.phase = self.PHASE_INSOMNIAC
+        self.set_wait_list()
+        self.notify_players()
+    
+    def handle_daybreak(self):
+        log.msg("Entered daybreak phase.")
+        self.phase = self.PHASE_DAYBREAK
+        self.set_wait_list()
+        self.notify_players()
+    
+    def handle_endgame(self):
+        log.msg("Entered the endgame phase.")
+        self.phase = self.PHASE_ENDGAME
+        self.set_wait_list()
+        self.notify_players()
 
-    # ---
+    # ---------
+    # Signaling
+    # ---------
 
     def notify_players(self):
         """
@@ -332,26 +376,26 @@ class SSHGameProtocol(GameProtocol):
         elif phase == game.PHASE_MINION:
             self._draw_minion()
             self.commands = {'\r': self._signal_advance}
+        elif phase == game.PHASE_SEER:
+            self.commands = {}
+            self._draw_seer()
         self._display_time_remaining()
 
-    def _draw_twilight(self):
-        """
-        Display game instructions.
-        """
+    def _draw_phase_info(self, title, desc, key_help=None):
+        if key_help is None:
+            key_help = "Press ENTER to continue ..."
         terminal = self.terminal
         tw, th = self.term_size
         midway = tw // 2
         equator = th // 2
         frame_w = tw - midway
         row = equator + 1
-        title = "Twilight"
         pos = (frame_w - len(title)) // 2
         emca48 = A.bold[title, -A.bold[""]]
         text = assembleFormattedText(emca48)
         terminal.cursorPosition(pos, row)
         terminal.write(text)
-        msg = """The village has been invaded by ghastly werewolves!  These bloodthirsty shape changers want to take over the village.  But the villagers know they are weakest at daybreak, and that is when they will strike at their enemy.  In this game, you will take on the role of a villager or a werewolf.  At daybreak, the entire village votes on who lives and who dies.  If a werewolf is slain, the villagers win.  If no werewolves are slain, the werewolf team wins.  If no players are werewolves, the villagers only win if no one dies."""
-        lines = wrap_paras(msg, frame_w - 4) 
+        lines = wrap_paras(desc, frame_w - 4) 
         maxlen = max(len(line) for line in lines)
         pos = (frame_w - maxlen) // 2
         row += 1
@@ -366,10 +410,20 @@ class SSHGameProtocol(GameProtocol):
         if self._ready_to_advance:
             heading = "Waiting for other players ..."
         else:
-            heading = "Press a key to continue ..."
+            heading = key_help
         pos = (frame_w - len(heading)) // 2
         terminal.cursorPosition(pos, row)
         terminal.write(heading)
+
+    def _draw_twilight(self):
+        """
+        Display game instructions.
+        """
+        msg = """The village has been invaded by ghastly werewolves!  These bloodthirsty shape changers want to take over the village.  But the villagers know they are weakest at daybreak, and that is when they will strike at their enemy.  In this game, you will take on the role of a villager or a werewolf.  At daybreak, the entire village votes on who lives and who dies.  If a werewolf is slain, the villagers win.  If no werewolves are slain, the werewolf team wins.  If no players are werewolves, the villagers only win if no one dies."""
+        self._draw_phase_info(
+            "Twilight",
+            msg,
+            "Press a key to continue ...")
 
     def _draw_werewolves(self):
         """
@@ -397,31 +451,7 @@ class SSHGameProtocol(GameProtocol):
         midway = tw // 2
         equator = th // 2
         frame_w = tw - midway
-        row = equator + 1
-        pos = (frame_w - len(title)) // 2
-        emca48 = A.bold[title, -A.bold[""]]
-        text = assembleFormattedText(emca48)
-        terminal.cursorPosition(pos, row)
-        terminal.write(text)
-        lines = wrap_paras(msg, frame_w - 4) 
-        maxlen = max(len(line) for line in lines)
-        pos = (frame_w - maxlen) // 2
-        row += 1
-        for line in lines:
-            row += 1
-            terminal.cursorPosition(pos, row)
-            if row == (th - 4):
-                terminal.write("...")
-                break
-            terminal.write(line)
-        row = th - 2
-        if self._ready_to_advance:
-            heading = "Waiting for other players ..."
-        else:
-            heading = "Press ENTER to continue ..."
-        pos = (frame_w - len(heading)) // 2
-        terminal.cursorPosition(pos, row)
-        terminal.write(heading)
+        self._draw_phase_info(title, msg)
         game = self.game
         if not game.is_player_active(self.user_id):
             self._display_sleeping()
@@ -444,6 +474,93 @@ class SSHGameProtocol(GameProtocol):
                     break
                 terminal.write(player)
 
+    def _draw_seer(self):
+        """
+        The seer can examine 2 cards on the table or a single player's card.
+        """
+        msg = '''The seer can use her mystic powers to view 1 player's card, or 2 table cards.'''
+        game = self.game
+        if not game.is_player_active(self.user_id):
+            self._draw_phase_info("Seer", msg)
+            self._display_sleeping()
+            self.commands = {'\r': self._signal_advance}
+        elif not game.power_activated:
+            key_help = "Choose an option ..."
+            self._draw_phase_info("Seer", msg, key_help=key_help)
+            self._draw_seer_choose()
+        else:
+            self._draw_phase_info("Seer", msg)
+            self._draw_seer_power_activated()
+            
+    def _draw_seer_choose(self):
+        terminal = self.terminal
+        tw, th = self.term_size
+        midway = tw // 2
+        equator = th // 2
+        frame_w = tw - midway
+        game = self.game
+        commands = {'t': self._seer_examine_table_cards}
+        session_entry = session.get_entry(game.session_id)
+        members = set(session_entry.members)
+        members.discard(self.user_id)
+        other_player_list = list(members)
+        for n, player in enumerate(other_player_list):
+            commands[str(n+1)] = lambda : self._seer_examine_player(player)
+        row = equator + 2
+        pos = midway + 2
+        msg = "Choose:"
+        terminal.cursorPosition(pos, row)
+        terminal.write(msg)
+        choices = ['t - Examine 2 table cards.']
+        for n, player in enumerate(other_player_list):
+            choices.append("{} - Examine {}'s card.".format(n + 1, player))
+        for choice in choices:
+            row += 1
+            terminal.cursorPosition(pos, row)
+            terminal.write(choice)
+        self.commands = commands
+
+    def _draw_seer_power_activated(self):
+        terminal = self.terminal
+        tw, th = self.term_size
+        midway = tw // 2
+        equator = th // 2
+        frame_w = tw - midway
+        self.commands = {'\r': self._signal_advance}
+        game = self.game
+        if not game.seer_viewed_table_cards is None:
+            # Display table cards.
+            cards = game.seer_viewed_table_cards
+            card_names = [WerewolfGame.get_card_name(c) for c in cards]
+            row = equator + 2
+            pos = midway + 2
+            msg = "Your mystic powers reveal the following table cards ..." 
+            lines = wrap_paras(msg, frame_w - 4)
+            for line in lines:
+                terminal.cursorPosition(pos, row)
+                terminal.write(line)
+                row += 1
+            row += 1
+            for card_name in card_names:
+                terminal.cursorPosition(pos, row)
+                terminal.write(card_name)
+                row += 1
+        elif not game.seer_viewd_player_card is None:
+            # Display player cards.
+            log.msg("TODO: Display the viewed player card.")
+        else:
+            raise Exception("Seer power activated but no cards revealed?!")
+
+    def _seer_examine_table_cards(self):
+        game = self.game
+        all_positions = [0, 1, 2]
+        positions = random.sample(all_positions, 2)
+        game.seer_viewed_table_cards = game.seer_view_table_cards(*positions)
+        game.power_activated = True
+
+    def _seer_examine_player(self, player):
+        pass
+        
     def _display_sleeping(self):
         """
         Display output that player is sleeping during this phase.
