@@ -379,6 +379,15 @@ class SSHGameProtocol(GameProtocol):
         elif phase == game.PHASE_SEER:
             self.commands = {}
             self._draw_seer()
+        elif phase == game.PHASE_ROBBER:
+            self.commands = {}
+            self._draw_robber()
+        elif phase == game.PHASE_TROUBLEMAKER:
+            self.commands = {}
+            self._draw_troublemaker()
+        elif phase == game.PHASE_INSOMNIAC:
+            self.commands = {}
+            self._draw_insomniac()
         self._display_time_remaining()
 
     def _draw_phase_info(self, title, desc, key_help=None):
@@ -506,6 +515,7 @@ class SSHGameProtocol(GameProtocol):
         other_player_list = list(members)
         for n, player in enumerate(other_player_list):
             commands[str(n+1)] = lambda : self._seer_examine_player(player)
+            log.msg("DEBUG: {} -> choose {}".format(str(n+1), player))
         row = equator + 2
         pos = midway + 2
         msg = "Choose:"
@@ -545,9 +555,21 @@ class SSHGameProtocol(GameProtocol):
                 terminal.cursorPosition(pos, row)
                 terminal.write(card_name)
                 row += 1
-        elif not game.seer_viewd_player_card is None:
+        elif not game.seer_viewed_player_card is None:
             # Display player cards.
-            log.msg("TODO: Display the viewed player card.")
+            player, card = game.seer_viewed_player_card
+            card_name = WerewolfGame.get_card_name(card)
+            row = equator + 2
+            pos = midway + 2
+            msg = "You mystic powers fortell that {} has the {} card.".format(player, card_name)
+            lines = wrap_paras(msg, frame_w - 4)
+            for line in lines:
+                terminal.cursorPosition(pos, row)
+                if row == th - 2:
+                    terminal.write("...")
+                    break
+                terminal.write(line)
+                row += 1
         else:
             raise Exception("Seer power activated but no cards revealed?!")
 
@@ -559,7 +581,19 @@ class SSHGameProtocol(GameProtocol):
         game.power_activated = True
 
     def _seer_examine_player(self, player):
-        pass
+        game = self.game
+        card = game.seer_view_player_card(player)
+        game.seer_viewed_player_card = (player, card)
+        game.power_activated = True
+
+    def _draw_robber(self):
+        log.msg("TODO: _draw_robber()")
+        
+    def _draw_troublemaker(self):
+        log.msg("TODO: _draw_troublemaker()")
+        
+    def _draw_insomniac(self):
+        log.msg("TODO: _draw_insomniac()")
         
     def _display_sleeping(self):
         """
