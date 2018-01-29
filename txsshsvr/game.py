@@ -43,6 +43,8 @@ class HandledWerewolfGame(WerewolfGame):
     power_activated = False
     seer_viewed_table_cards = None
     seer_viewed_player_card = None
+    robber_stolen_card = None
+    troublemaker_swapped_players = None
 
     # --------------
     # Event handlers
@@ -514,7 +516,11 @@ class SSHGameProtocol(GameProtocol):
         members.discard(self.user_id)
         other_player_list = list(members)
         for n, player in enumerate(other_player_list):
-            commands[str(n+1)] = lambda : self._seer_examine_player(player)
+
+            def _make_command(player):
+                return lambda : self._seer_examine_player(player)
+
+            commands[str(n+1)] = _make_command(player)
             log.msg("DEBUG: {} -> choose {}".format(str(n+1), player))
         row = equator + 2
         pos = midway + 2
@@ -587,8 +593,100 @@ class SSHGameProtocol(GameProtocol):
         game.power_activated = True
 
     def _draw_robber(self):
-        log.msg("TODO: _draw_robber()")
+        """
+        The robber may choose to exchange his card with another player's card.
+        """
+        msg = """The robber may exchange his card with another player's card.  He looks at the card he has robbed, and is now on that team.  The player receiving the robber card is on the village team."""
+        game = self.game
+        if not game.is_player_active(self.user_id):
+            self._draw_phase_info("Robber", msg)
+            self._display_sleeping()
+            self.commands = {'\r': self._signal_advance}
+        elif not game.power_activated:
+            key_help = "Choose an option ..."
+            self._draw_phase_info("Robber", msg, key_help=key_help)
+            self._draw_robber_choose()
+        else:
+            self._draw_phase_info("Robber", msg)
+            self._draw_robber_power_activated()
         
+    def _draw_robber_choose(self):
+        terminal = self.terminal
+        tw, th = self.term_size
+        midway = tw // 2
+        equator = th // 2
+        frame_w = tw - midway
+        game = self.game
+        commands = {'x': self._robber_dont_steal}
+        session_entry = session.get_entry(game.session_id)
+        members = set(session_entry.members)
+        members.discard(self.user_id)
+        other_player_list = list(members)
+        for n, player in enumerate(other_player_list):
+
+            def _make_command(player):
+                return lambda : self._robber_steal_from_player(player)
+
+            commands[str(n+1)] = _make_command(player)
+        row = equator + 2
+        pos = midway + 2
+        msg = "Choose:"
+        terminal.cursorPosition(pos, row)
+        terminal.write(msg)
+        choices = ["x - Don't rob anyone."]
+        for n, player in enumerate(other_player_list):
+            choices.append("{} - Rob {}'s card.".format(n + 1, player))
+        for choice in choices:
+            row += 1
+            terminal.cursorPosition(pos, row)
+            terminal.write(choice)
+        self.commands = commands
+
+    def _draw_robber_power_activated(self):
+        terminal = self.terminal
+        tw, th = self.term_size
+        midway = tw // 2
+        equator = th // 2
+        frame_w = tw - midway
+        self.commands = {'\r': self._signal_advance}
+        game = self.game
+        if not game.robber_stolen_card is None:
+            # Display stolen card.
+            player, card = game.robber_stolen_card
+            card_name = WerewolfGame.get_card_name(card)
+            row = equator + 2
+            pos = midway + 2
+            msg = "You stole the {} card from {}.".format(card_name, player) 
+            lines = wrap_paras(msg, frame_w - 4)
+            for line in lines:
+                terminal.cursorPosition(pos, row)
+                terminal.write(line)
+                row += 1
+            row += 1
+        else:
+            row = equator + 2
+            pos = midway + 2
+            msg = "You chose not to steal."
+            lines = wrap_paras(msg, frame_w - 4)
+            for line in lines:
+                terminal.cursorPosition(pos, row)
+                if row == th - 2:
+                    terminal.write("...")
+                    break
+                terminal.write(line)
+                row += 1
+
+    def _robber_dont_steal(self):
+        log.msg("Robber chose not to steal.")
+        self.game.power_activated = True
+
+    def _robber_steal_from_player(self, player):
+        log.msg("Robber stole from {}".format(player))
+        game = self.game
+        game.power_activated = True
+        card = game.robber_steal_card(player)
+        game.robber_stolen_card = (player, card)
+
     def _draw_troublemaker(self):
         log.msg("TODO: _draw_troublemaker()")
         
