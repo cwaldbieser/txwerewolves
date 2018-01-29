@@ -492,15 +492,15 @@ class SSHGameProtocol(GameProtocol):
         msg = '''The seer can use her mystic powers to view 1 player's card, or 2 table cards.'''
         game = self.game
         if not game.is_player_active(self.user_id):
-            self._draw_phase_info("Seer", msg)
+            self._draw_phase_info("Seer Phase", msg)
             self._display_sleeping()
             self.commands = {'\r': self._signal_advance}
         elif not game.power_activated:
             key_help = "Choose an option ..."
-            self._draw_phase_info("Seer", msg, key_help=key_help)
+            self._draw_phase_info("Seer Phase", msg, key_help=key_help)
             self._draw_seer_choose()
         else:
-            self._draw_phase_info("Seer", msg)
+            self._draw_phase_info("Seer Phase", msg)
             self._draw_seer_power_activated()
             
     def _draw_seer_choose(self):
@@ -521,7 +521,6 @@ class SSHGameProtocol(GameProtocol):
                 return lambda : self._seer_examine_player(player)
 
             commands[str(n+1)] = _make_command(player)
-            log.msg("DEBUG: {} -> choose {}".format(str(n+1), player))
         row = equator + 2
         pos = midway + 2
         msg = "Choose:"
@@ -599,15 +598,15 @@ class SSHGameProtocol(GameProtocol):
         msg = """The robber may exchange his card with another player's card.  He looks at the card he has robbed, and is now on that team.  The player receiving the robber card is on the village team."""
         game = self.game
         if not game.is_player_active(self.user_id):
-            self._draw_phase_info("Robber", msg)
+            self._draw_phase_info("Robber Phase", msg)
             self._display_sleeping()
             self.commands = {'\r': self._signal_advance}
         elif not game.power_activated:
             key_help = "Choose an option ..."
-            self._draw_phase_info("Robber", msg, key_help=key_help)
+            self._draw_phase_info("Robber Phase", msg, key_help=key_help)
             self._draw_robber_choose()
         else:
-            self._draw_phase_info("Robber", msg)
+            self._draw_phase_info("Robber Phase", msg)
             self._draw_robber_power_activated()
         
     def _draw_robber_choose(self):
@@ -688,7 +687,112 @@ class SSHGameProtocol(GameProtocol):
         game.robber_stolen_card = (player, card)
 
     def _draw_troublemaker(self):
-        log.msg("TODO: _draw_troublemaker()")
+        """
+        The troublemaker may exchange the cards of 2 other players without
+        looking at them.
+        """
+        msg = """The troublemaker may exchange the cards of 2 other players without looking at them."""
+        game = self.game
+        if not game.is_player_active(self.user_id):
+            self._draw_phase_info("Troublemaker Phase", msg)
+            self._display_sleeping()
+            self.commands = {'\r': self._signal_advance}
+        elif not game.power_activated:
+            key_help = "Choose an option ..."
+            self._draw_phase_info("Troublemaker Phase", msg, key_help=key_help)
+            self._draw_troublemaker_choose()
+        else:
+            self._draw_phase_info("Troublemaker Phase", msg)
+            self._draw_troublemaker_power_activated()
+        
+    def _draw_troublemaker_choose(self):
+        terminal = self.terminal
+        tw, th = self.term_size
+        midway = tw // 2
+        equator = th // 2
+        frame_w = tw - midway
+        game = self.game
+        commands = {'x': self._troublemaker_dont_cause_trouble}
+        session_entry = session.get_entry(game.session_id)
+        members = set(session_entry.members)
+        members.discard(self.user_id)
+        first_choice = game.troublemaker_swapped_players
+        other_player_list = list(members)
+        for n, player in enumerate(other_player_list):
+
+            def _make_command(player):
+                return lambda : self._troublemaker_switch_player_card(player)
+
+            if player != first_choice:
+                commands[str(n+1)] = _make_command(player)
+        row = equator + 2
+        pos = midway + 2
+        msg = "Choose:"
+        terminal.cursorPosition(pos, row)
+        terminal.write(msg)
+        choices = ["x - Don't cause trouble."]
+        for n, player in enumerate(other_player_list):
+            if first_choice is None:
+                choices.append("{} - Exchange {}'s card ...".format(n + 1, player))
+            else:
+                if player == first_choice:
+                    choices.append("- already selected -")
+                else:
+                    choices.append("{} - Exchange {}'s card with {}'s card.".format(
+                        n + 1, player, first_choice))
+        for choice in choices:
+            row += 1
+            terminal.cursorPosition(pos, row)
+            terminal.write(choice)
+        self.commands = commands
+
+    def _draw_troublemaker_power_activated(self):
+        terminal = self.terminal
+        tw, th = self.term_size
+        midway = tw // 2
+        equator = th // 2
+        frame_w = tw - midway
+        self.commands = {'\r': self._signal_advance}
+        game = self.game
+        if not game.troublemaker_swapped_players is None:
+            player1, player2 = game.troublemaker_swapped_players
+            row = equator + 2
+            pos = midway + 2
+            msg = "You swapped {}'s card with {}'s card.".format(player1, player2) 
+            lines = wrap_paras(msg, frame_w - 4)
+            for line in lines:
+                terminal.cursorPosition(pos, row)
+                terminal.write(line)
+                row += 1
+            row += 1
+        else:
+            row = equator + 2
+            pos = midway + 2
+            msg = "You chose not to cause trouble."
+            lines = wrap_paras(msg, frame_w - 4)
+            for line in lines:
+                terminal.cursorPosition(pos, row)
+                if row == th - 2:
+                    terminal.write("...")
+                    break
+                terminal.write(line)
+                row += 1
+
+    def _troublemaker_dont_cause_trouble(self):
+        log.msg("Troublemaker chose not to exchange cards.")
+        self.troublemaker_swapped_players = None
+        self.game.power_activated = True
+
+    def _troublemaker_switch_player_card(self, player):
+        log.msg("Troublemaker chose player {}".format(player))
+        game = self.game
+        if game.troublemaker_swapped_players is None:
+            game.troublemaker_swapped_players = player
+        else:
+            player1 = game.troublemaker_swapped_players
+            game.troublemaker_swapped_players = (player1, player)
+            game.troublemaker_switch_cards(player1, player)
+            game.power_activated = True
         
     def _draw_insomniac(self):
         log.msg("TODO: _draw_insomniac()")
