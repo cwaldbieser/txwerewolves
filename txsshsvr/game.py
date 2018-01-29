@@ -388,7 +388,7 @@ class SSHGameProtocol(GameProtocol):
             self.commands = {}
             self._draw_troublemaker()
         elif phase == game.PHASE_INSOMNIAC:
-            self.commands = {}
+            self.commands = {'\r': self._signal_advance}
             self._draw_insomniac()
         self._display_time_remaining()
 
@@ -736,7 +736,7 @@ class SSHGameProtocol(GameProtocol):
                 choices.append("{} - Exchange {}'s card ...".format(n + 1, player))
             else:
                 if player == first_choice:
-                    choices.append("- already selected -")
+                    choices.append("{} - already selected {}".format(" " * len(str(n+1)), player))
                 else:
                     choices.append("{} - Exchange {}'s card with {}'s card.".format(
                         n + 1, player, first_choice))
@@ -795,7 +795,34 @@ class SSHGameProtocol(GameProtocol):
             game.power_activated = True
         
     def _draw_insomniac(self):
-        log.msg("TODO: _draw_insomniac()")
+        terminal = self.terminal
+        tw, th = self.term_size
+        midway = tw // 2
+        equator = th // 2
+        frame_w = tw - midway
+        title = "Insomniac Phase"
+        msg = """The insomniac wakes up in the middle of the night and checks to see if her card has been changed."""
+        self._draw_phase_info(title, msg)
+        game = self.game
+        if not game.is_player_active(self.user_id):
+            self._display_sleeping()
+        else:
+            row = equator + 2
+            pos = midway + 2
+            card = game.insomniac_view_card()
+            if card == WerewolfGame.CARD_INSOMNIAC:
+                text = "Your card has NOT changed."
+            else:
+                card_name = WerewolfGame.get_card_name(card)
+                text = "Your card has been switched with the {} card!".format(card_name)
+            lines = wrap_paras(text, frame_w - 4)
+            for line in lines:
+                if row == th - 2:
+                    terminal.write("...")
+                    break
+                terminal.cursorPosition(pos, row)
+                terminal.write(line)
+                row += 1
         
     def _display_sleeping(self):
         """
