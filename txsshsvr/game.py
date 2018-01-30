@@ -45,6 +45,8 @@ class HandledWerewolfGame(WerewolfGame):
     seer_viewed_player_card = None
     robber_stolen_card = None
     troublemaker_swapped_players = None
+    votes = None
+    post_game_results = None
 
     # --------------
     # Event handlers
@@ -97,6 +99,7 @@ class HandledWerewolfGame(WerewolfGame):
     
     def handle_daybreak(self):
         log.msg("Entered daybreak phase.")
+        self.votes = {}
         self.phase = self.PHASE_DAYBREAK
         self.set_wait_list()
         self.notify_players()
@@ -105,6 +108,7 @@ class HandledWerewolfGame(WerewolfGame):
         log.msg("Entered the endgame phase.")
         self.phase = self.PHASE_ENDGAME
         self.set_wait_list()
+        self.post_game_results = self.query_post_game_results()
         self.notify_players()
 
     # ---------
@@ -138,7 +142,38 @@ class HandledWerewolfGame(WerewolfGame):
         wait_list = self.wait_list
         wait_list.discard(player)
         if len(wait_list) == 0:
-            self.advance_phase()
+            if self.phase != self.PHASE_DAYBREAK:
+                self.advance_phase()
+            else:
+                self.count_votes()
+
+    def count_votes(self):
+        """
+        Count the votes, determine who won and who lost.
+        """
+        vote_map = self.votes
+        votes = collections.Counter()
+        hunter = self.query_hunter()
+        hunter_victim = None
+        for voter, player in vote_map.items():
+            votes[player] += 1
+            if voter == hunter:
+                hunter_victim = player
+        rank = votes.most_common()
+        most_votes = []
+        top_score = 0
+        for player, count in rank:
+            if count == 1:
+                break
+            if count < top_score:
+                break
+            top_score = count
+            most_votes.append(player)
+        if hunter in most_votes:
+            most_votes.append(hunter_victim)
+            most_votes = list(set(most_votes))
+            most_votes.sort()
+        self.eliminate_players(most_votes)
             
     
 class GameProtocol(object):
@@ -369,6 +404,7 @@ class SSHGameProtocol(GameProtocol):
         tw, th = self.term_size
         game = self.game
         phase = game.phase
+        self.commands = None
         if phase == game.PHASE_TWILIGHT:
             self._draw_twilight()
             self.commands = {'*': self._signal_advance}
@@ -379,17 +415,18 @@ class SSHGameProtocol(GameProtocol):
             self._draw_minion()
             self.commands = {'\r': self._signal_advance}
         elif phase == game.PHASE_SEER:
-            self.commands = {}
             self._draw_seer()
         elif phase == game.PHASE_ROBBER:
-            self.commands = {}
             self._draw_robber()
         elif phase == game.PHASE_TROUBLEMAKER:
-            self.commands = {}
             self._draw_troublemaker()
         elif phase == game.PHASE_INSOMNIAC:
             self.commands = {'\r': self._signal_advance}
             self._draw_insomniac()
+        elif phase == game.PHASE_DAYBREAK:
+            self._draw_daybreak()
+        elif phase == game.PHASE_ENDGAME:
+            self._draw_endgame()
         self._display_time_remaining()
 
     def _draw_phase_info(self, title, desc, key_help=None):
@@ -823,6 +860,98 @@ class SSHGameProtocol(GameProtocol):
                 terminal.cursorPosition(pos, row)
                 terminal.write(line)
                 row += 1
+
+    def _draw_daybreak(self):
+        """
+        At daybreak, everyone discusses what happened and votes who to eliminate.
+        """
+        msg = """It is now daybreak.  Everyone should discuss what happened the night before.  Each player will then have one vote to decide who should be eliminated.  If at least 1 player has more than 1 vote, the player with the most votes is eliminated!"""
+        user_id = self.user_id
+        card = self.player_cards[user_id]
+        if card == WerewolfGame.CARD_HUNTER:
+            msg += "\n\nIf the hunter is eliminated, the player he voted for is also eliminated." 
+        elif card == WerewolfGame.CARD_TANNER:
+            msg += "\n\nThe tanner only wins if he is eliminated." 
+        self._draw_phase_info(
+            "Daybreak",
+            msg,
+            "Vote!")
+        terminal = self.terminal
+        tw, th = self.term_size
+        midway = tw // 2
+        equator = th // 2
+        frame_w = tw - midway
+        game = self.game
+        session_entry = session.get_entry(game.session_id)
+        members = set(session_entry.members)
+        players = list(members)
+        players.sort()
+        commands = {}
+        user_id = self.user_id
+        for n, player in enumerate(players):
+            
+            def _make_command(player):
+                return lambda : self._daybreak_vote_for_player(player)
+
+            commands[str(n + 1)] = _make_command(player)
+        self.commands = commands
+        pos = midway + 2
+        row = equator + 2
+        terminal.cursorPosition(pos, row)
+        msg = "Vote to eliminate player ..."
+        terminal.write(msg)
+        row += 1
+        for n, player in enumerate(players):
+            if row == th - 2:
+                terminal.write("...")
+                break
+            terminal.cursorPosition(pos, row)
+            if player == user_id:
+                msg = "{} - yourself".format(n + 1)
+            else:
+                msg = "{} - {}".format(n + 1, player)
+            terminal.write(msg)
+            row += 1
+
+    def _daybreak_vote_for_player(self, player):
+        game = self.game
+        votes = game.votes
+        user_id = self.user_id
+        votes[user_id] = player
+        log.msg("{} voted to eliminate {}".format(user_id, player))
+        self._signal_advance()
+    
+    def _draw_endgame(self):
+        msg = """The game is now over.  Time to see who won!"""
+        user_id = self.user_id
+        self._draw_phase_info(
+            "Post Game Results",
+            msg,
+            "")
+        terminal = self.terminal
+        tw, th = self.term_size
+        midway = tw // 2
+        equator = th // 2
+        frame_w = tw - midway
+        game = self.game
+        pgi = game.post_game_results
+        winner = pgi.winner
+        player_cards = pgi.player_cards
+        orig_player_cards = pgi.orig_player_cards
+        table_cards = pgi.table_cards
+        wg = WerewolfGame
+        if winner == wg.WINNER_VILLAGE:
+            msg = "A Village Victory!"
+        elif winner == wg.WINNER_WEREWOLVES:
+            msg = "A Werewolf Victory!"
+        elif winner == wg.WINNER_TANNER:
+            msg = "A Tanner Victory!"
+        elif winner == wg.WINNER_TANNER_VILLAGE:
+            msg = "A Tanner and Village Victory!"
+        pos = midway + (frame_w - len(msg)) // 2
+        row = equator + 2
+        terminal.cursorPosition(pos, row)
+        terminal.write(msg)
         
     def _display_sleeping(self):
         """
