@@ -47,6 +47,7 @@ class HandledWerewolfGame(WerewolfGame):
     troublemaker_swapped_players = None
     votes = None
     post_game_results = None
+    eliminated = None
 
     # --------------
     # Event handlers
@@ -173,6 +174,7 @@ class HandledWerewolfGame(WerewolfGame):
             most_votes.append(hunter_victim)
             most_votes = list(set(most_votes))
             most_votes.sort()
+        self.eliminated = list(most_votes)
         self.eliminate_players(most_votes)
             
     
@@ -454,6 +456,7 @@ class SSHGameProtocol(GameProtocol):
                 terminal.write("...")
                 break
             terminal.write(line)
+        last_row = row
         row = th - 2
         if self._ready_to_advance:
             heading = "Waiting for other players ..."
@@ -462,6 +465,7 @@ class SSHGameProtocol(GameProtocol):
         pos = (frame_w - len(heading)) // 2
         terminal.cursorPosition(pos, row)
         terminal.write(heading)
+        return last_row
 
     def _draw_twilight(self):
         """
@@ -924,7 +928,7 @@ class SSHGameProtocol(GameProtocol):
     def _draw_endgame(self):
         msg = """The game is now over.  Time to see who won!"""
         user_id = self.user_id
-        self._draw_phase_info(
+        last_row = self._draw_phase_info(
             "Post Game Results",
             msg,
             "")
@@ -934,6 +938,23 @@ class SSHGameProtocol(GameProtocol):
         equator = th // 2
         frame_w = tw - midway
         game = self.game
+        eliminated = game.eliminated
+        row = last_row + 2
+        pos = 2
+        if len(eliminated) == 0:
+            msg = "No one was eliminated!"
+        elif len(eliminated) == 1:
+            msg = "{} was eliminated.".format(eliminated[0])
+        elif len(eliminated) > 1:
+            msg = "{}, and {} were eliminated.".format(
+                ', '.join(eliminated[:-1]), eliminated[-1])
+        lines = wrap_paras(msg, frame_w - 4)
+        for line in lines:
+            terminal.cursorPosition(pos, row)
+            if row >= th - 2:
+                terminal.write("...")
+                break
+            terminal.write(line) 
         pgi = game.post_game_results
         winner = pgi.winner
         player_cards = pgi.player_cards
