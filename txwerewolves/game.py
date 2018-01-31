@@ -14,12 +14,12 @@ from six.moves import (
     zip,
 )
 from twisted.python import log
-from txsshsvr import graphics_chars as gchars
-from txsshsvr import (
+from txwerewolves import graphics_chars as gchars
+from txwerewolves import (
     session,
     users,
 )
-from txsshsvr.werewolf import WerewolfGame
+from txwerewolves.werewolf import WerewolfGame
 from twisted.conch.insults.text import (
     attributes as A,
     assembleFormattedText,

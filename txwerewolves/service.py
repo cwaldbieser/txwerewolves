@@ -7,7 +7,7 @@ from __future__ import (
     print_function,
 )
 import json
-from txsshsvr import auth
+from txwerewolves import auth
 from twisted.application.service import Service
 from twisted.cred.portal import Portal
 from twisted.conch.checkers import (

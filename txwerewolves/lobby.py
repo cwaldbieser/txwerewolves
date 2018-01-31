@@ -4,7 +4,7 @@ from __future__ import (
     division,
     print_function,
 )
-from txsshsvr import (
+from txwerewolves import (
     session,
     users,
 )
@@ -16,9 +16,9 @@ from twisted.conch.insults.text import (
 )
 from twisted.internet import defer
 from twisted.python import log
-from txsshsvr.todo import TodoProtocol
-from txsshsvr.game import SSHGameProtocol
-from txsshsvr import graphics_chars as gchars
+from txwerewolves.todo import TodoProtocol
+from txwerewolves.game import SSHGameProtocol
+from txwerewolves import graphics_chars as gchars
 
 
 class LobbyProtocol(object):

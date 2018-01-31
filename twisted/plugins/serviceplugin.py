@@ -5,7 +5,7 @@ from __future__ import (
 )
 import argparse
 import sys
-from txsshsvr.service import SSHService
+from txwerewolves.service import SSHService
 from twisted.application.service import (
     IServiceMaker, 
     MultiService,
@@ -31,8 +31,8 @@ class Options(usage.Options):
 
 class MyServiceMaker(object):
     implements(IServiceMaker, IPlugin)
-    description = "SSH Service"
-    tapname = "sshsrv"
+    description = "Werewolves!"
+    tapname = "werewolves"
     options = Options
     ssh_endpoint_str = "tcp:2022"
 

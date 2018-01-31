@@ -4,8 +4,8 @@ from __future__ import (
     print_function,
 )
 import uuid
-from txsshsvr import users
-from txsshsvr.app_proto import makeSSHApplicationProtocol
+from txwerewolves import users
+from txwerewolves.app_proto import makeSSHApplicationProtocol
 from twisted.cred.portal import IRealm
 from twisted.conch.avatar import ConchUser
 from twisted.conch.insults.insults import ServerProtocol

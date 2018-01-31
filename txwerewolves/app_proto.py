@@ -4,7 +4,7 @@ from __future__ import (
     print_function,
 )
 import weakref
-from txsshsvr import (
+from txwerewolves import (
     lobby,
     users,
 )
