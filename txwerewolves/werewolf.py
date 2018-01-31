@@ -356,7 +356,9 @@ class WerewolfGame(object):
         total_cards = player_count + 3
         deck = []
         deck.extend([self.CARD_WEREWOLF] * werewolf_count)
-        deck.extend(roles)
+        role_list = list(roles)
+        random.shuffle(role_list)
+        deck.extend(role_list)
         additional_cards = total_cards - len(deck)
         if additional_cards > 0:
             deck.extend([self.CARD_VILLAGER] * additional_cards)
