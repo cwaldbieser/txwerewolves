@@ -27,6 +27,7 @@ generated SSH key pair:
 
 .. code:: shell
 
+    $ mkdir ssh-keys
     $ ckeygen -t rsa -f ssh-keys/ssh_host_rsa_key
 
 To configure authentication for the service, edit `users/user_keys.json`.
@@ -46,6 +47,8 @@ To start the service:
 
 .. code:: shell
 
+    $ cd /path/to/project
+    $ export PYTHONPATH=.
     $ twistd -n werewolves -e tcp:2022
 
 
@@ -53,5 +56,5 @@ To connect a client to the service:
 
 .. code:: shell
 
-    $ ssh waldbiec@localhost -p 2022
+    $ ssh user1@localhost -p 2022
 

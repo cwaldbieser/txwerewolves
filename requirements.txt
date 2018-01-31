@@ -9,7 +9,6 @@ hyperlink==17.3.1
 idna==2.6
 incremental==17.5.0
 ipaddress==1.0.18
-pkg-resources==0.0.0
 pyasn1==0.3.7
 pyasn1-modules==0.1.5
 pycparser==2.18
