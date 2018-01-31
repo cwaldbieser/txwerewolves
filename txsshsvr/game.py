@@ -938,29 +938,49 @@ class SSHGameProtocol(GameProtocol):
         equator = th // 2
         frame_w = tw - midway
         game = self.game
-        eliminated = game.eliminated
+        eliminated = set(game.eliminated)
         row = last_row + 2
         pos = 2
-        if len(eliminated) == 0:
-            msg = "No one was eliminated!"
-        elif len(eliminated) == 1:
-            msg = "{} was eliminated.".format(eliminated[0])
-        elif len(eliminated) > 1:
-            msg = "{}, and {} were eliminated.".format(
-                ', '.join(eliminated[:-1]), eliminated[-1])
-        lines = wrap_paras(msg, frame_w - 4)
-        for line in lines:
-            terminal.cursorPosition(pos, row)
-            if row >= th - 2:
-                terminal.write("...")
-                break
-            terminal.write(line) 
+        col_w = (frame_w - 3) // 3 
+        pos_col0 = 2
+        pos_col1 = pos_col0 + col_w
+        pos_col2 = pos_col1 + col_w
+        emca48 = A.underline["Player", -A.underline[""]]
+        text = assembleFormattedText(emca48)
+        terminal.cursorPosition(pos_col0, row)
+        terminal.write(text)
+        emca48 = A.underline["Eliminated?", -A.underline[""]]
+        text = assembleFormattedText(emca48)
+        terminal.cursorPosition(pos_col1, row)
+        terminal.write(text)
+        emca48 = A.underline["Voted For", -A.underline[""]]
+        text = assembleFormattedText(emca48)
+        terminal.cursorPosition(pos_col2, row)
+        terminal.write(text)
         pgi = game.post_game_results
         winner = pgi.winner
         player_cards = pgi.player_cards
         orig_player_cards = pgi.orig_player_cards
         table_cards = pgi.table_cards
         orig_table_cards = pgi.orig_table_cards
+        players = player_cards.keys()
+        players.sort()
+        votes = game.votes
+        row += 1
+        for player in players:
+            terminal.cursorPosition(pos_col0, row)
+            if row == th - 2:
+                terminal.write("...")
+                break
+            terminal.write(player)
+            terminal.cursorPosition(pos_col1, row)
+            elim_flag = " "
+            if player in eliminated:
+                elim_flag = "Y"
+            terminal.write(elim_flag)
+            terminal.cursorPosition(pos_col2, row)
+            terminal.write(votes.get(player, "N/A"))
+            row += 1
         wg = WerewolfGame
         if winner == wg.WINNER_VILLAGE:
             msg = "A Village Victory!"
@@ -978,8 +998,6 @@ class SSHGameProtocol(GameProtocol):
         msg = assembleFormattedText(emca48)
         terminal.cursorPosition(pos, row)
         terminal.write(msg)
-        players = player_cards.keys()
-        players.sort()
         player_result_matrix = []
         for player in players:
             entry = (
