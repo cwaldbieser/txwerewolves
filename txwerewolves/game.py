@@ -9,6 +9,7 @@ import itertools
 import random
 import sys
 import textwrap
+import weakref
 import six
 from six.moves import (
     zip,
@@ -40,6 +41,8 @@ class HandledWerewolfGame(WerewolfGame):
     phase = None
     session_id = None
     wait_list = None
+    player_cards = None
+    used_roles = None
     power_activated = False
     seer_viewed_table_cards = None
     seer_viewed_player_card = None
@@ -56,23 +59,35 @@ class HandledWerewolfGame(WerewolfGame):
     def handle_cards_dealt(self):
         log.msg("Cards have been dealt.")
         self.phase = self.PHASE_TWILIGHT
+        self.player_cards = self.query_player_cards()
+        table_cards = self.query_table_cards()
+        self.used_roles = frozenset(table_cards + list(self.player_cards.values()))
         self.set_wait_list()
         self.notify_players()
 
     def handle_werewolf_phase(self):
         log.msg("Entered the werewolf phase.")
+        if not self.CARD_WEREWOLF in self.used_roles:
+            self.advance_phase()
+            return
         self.phase = self.PHASE_WEREWOLVES
         self.set_wait_list()
         self.notify_players()
 
     def handle_minion_phase(self):
         log.msg("Entered the minion phase.")
+        if not self.CARD_MINION in self.used_roles:
+            self.advance_phase()
+            return
         self.phase = self.PHASE_MINION
         self.set_wait_list()
         self.notify_players()
     
     def handle_seer_phase(self):
         log.msg("Entered the seer phase.")
+        if not self.CARD_SEER in self.used_roles:
+            self.advance_phase()
+            return
         self.phase = self.PHASE_SEER
         self.power_activated = False
         self.set_wait_list()
@@ -80,6 +95,9 @@ class HandledWerewolfGame(WerewolfGame):
     
     def handle_robber_phase(self):
         log.msg("Entered the robber phase.")
+        if not self.CARD_ROBBER in self.used_roles:
+            self.advance_phase()
+            return
         self.phase = self.PHASE_ROBBER
         self.power_activated = False
         self.set_wait_list()
@@ -87,6 +105,9 @@ class HandledWerewolfGame(WerewolfGame):
     
     def handle_troublemaker_phase(self):
         log.msg("Entered the troublemaker phase.")
+        if not self.CARD_TROUBLEMAKER in self.used_roles:
+            self.advance_phase()
+            return
         self.phase = self.PHASE_TROUBLEMAKER
         self.power_activated = False
         self.set_wait_list()
@@ -94,6 +115,9 @@ class HandledWerewolfGame(WerewolfGame):
     
     def handle_insomniac_phase(self):
         log.msg("Entered the insomniac phase.")
+        if not self.CARD_INSOMNIAC in self.used_roles:
+            self.advance_phase()
+            return
         self.phase = self.PHASE_INSOMNIAC
         self.set_wait_list()
         self.notify_players()
@@ -189,6 +213,7 @@ class SSHGameProtocol(GameProtocol):
     term_size = (80, 24)
     parent = None
     commands = None
+    dialog = None
     game = None
     player_cards = None
     cards = None
@@ -228,12 +253,18 @@ class SSHGameProtocol(GameProtocol):
         """
         Handle user input.
         """ 
-        func = self.commands.get(key_id)
-        if func is None:
-            func = self.commands.get('*', None)
+        if key_id == 'h':
+            self._show_help()
+        dialog = self.dialog
+        handled = False
+        if dialog is not None:
+            handled = dialog.handle_input(key_id, modifier)
+        if not handled and not self.commands is None:
+            func = self.commands.get(key_id)
             if func is None:
-                return
-        func()
+                func = self.commands.get('*', None)
+            if not func is None:
+                func()
         self.update_display() 
 
     def update_display(self):
@@ -247,6 +278,8 @@ class SSHGameProtocol(GameProtocol):
         self._draw_player_area()
         self._draw_game_info_area()
         self._draw_phase_area()
+        if not self.dialog is None:
+            self.dialog.draw()
         terminal.cursorPosition(0, th - 1)
 
     def handle_next_phase(self):
@@ -326,9 +359,7 @@ class SSHGameProtocol(GameProtocol):
         terminal.write(text)
         terminal.cursorPosition(2, 4)
         game = self.game
-        if self.player_cards is None:
-            self.player_cards = game.query_player_cards()
-        player_cards = self.player_cards
+        player_cards = game.player_cards
         card = player_cards[player]
         card_name = WerewolfGame.get_card_name(card)
         emca48 = A.bold["Dealt role: ", -A.bold[card_name]]
@@ -780,7 +811,7 @@ class SSHGameProtocol(GameProtocol):
                     choices.append("{} - already selected {}".format(" " * len(str(n+1)), player))
                 else:
                     choices.append("{} - Exchange {}'s card with {}'s card.".format(
-                        n + 1, player, first_choice))
+                        n + 1, first_choice, player))
         for choice in choices:
             row += 1
             terminal.cursorPosition(pos, row)
@@ -871,7 +902,8 @@ class SSHGameProtocol(GameProtocol):
         """
         msg = """It is now daybreak.  Everyone should discuss what happened the night before.  Each player will then have one vote to decide who should be eliminated.  If at least 1 player has more than 1 vote, the player with the most votes is eliminated!"""
         user_id = self.user_id
-        card = self.player_cards[user_id]
+        game = self.game
+        card = game.player_cards[user_id]
         if card == WerewolfGame.CARD_HUNTER:
             msg += "\n\nIf the hunter is eliminated, the player he voted for is also eliminated." 
         elif card == WerewolfGame.CARD_TANNER:
@@ -885,7 +917,6 @@ class SSHGameProtocol(GameProtocol):
         midway = tw // 2
         equator = th // 2
         frame_w = tw - midway
-        game = self.game
         session_entry = session.get_entry(game.session_id)
         members = set(session_entry.members)
         players = list(members)
@@ -988,7 +1019,7 @@ class SSHGameProtocol(GameProtocol):
             msg = "A Werewolf Victory!"
         elif winner == wg.WINNER_TANNER:
             msg = "A Tanner Victory!"
-        elif winner == wg.WINNER_TANNER_VILLAGE:
+        elif winner == wg.WINNER_TANNER_AND_VILLAGE:
             msg = "A Tanner and Village Victory!"
         elif winner == wg.WINNER_NO_ONE:
             msg = "No One Wins!"
@@ -1078,6 +1109,79 @@ class SSHGameProtocol(GameProtocol):
         user_id = self.user_id
         self.game.signal_advance(user_id)
         self._ready_to_advance = True
+
+    def _show_help(self):
+        dialog = HelpDialog()
+        self._install_dialog(dialog)
+
+    def _install_dialog(self, dialog):
+        dialog.parent = weakref.ref(self)
+        self.dialog = dialog
+
+class TermDialog(object):
+    parent = None
+    left = None
+    top = None
+    
+    def draw(self):
+        raise NotImplementedError()
+
+    def handle_input(self, key_id, modifier):
+        """
+        Handle input and return True
+        OR
+        return False for previous handler
+        """
+        raise NotImplementedError()
+
+    def uninstall_dialog(self):
+        self.parent().dialog = None
+
+class HelpDialog(TermDialog):
+
+    def draw(self):
+        """
+        Show help.
+        """
+        terminal = self.parent().terminal
+        tw, th = self.parent().term_size
+        help_w = int(tw * 0.8)
+        help_h = int(th * 0.6)
+        help_top = (th - help_h) // 2
+        help_left = (tw - help_w) // 2
+        self.left = help_left
+        self.top = help_top
+        pos = help_left
+        row = help_top
+        terminal.cursorPosition(pos, row)
+        terminal.write(gchars.DBORDER_UP_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (help_w - 2))
+        terminal.write(gchars.DBORDER_UP_RIGHT)
+        for n in range(help_h - 2):
+            row += 1
+            terminal.cursorPosition(pos, row)
+            terminal.write(gchars.DBORDER_VERTICAL)
+            terminal.write(" " * (help_w - 2))
+            terminal.write(gchars.DBORDER_VERTICAL)
+        row += 1
+        terminal.cursorPosition(pos, row)
+        terminal.write(gchars.DBORDER_DOWN_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (help_w - 2))
+        terminal.write(gchars.DBORDER_DOWN_RIGHT)
+        row = help_top + help_h // 2
+        msg = "This is a help message."
+        pos = help_left + (help_w - len(msg)) // 2
+        terminal.cursorPosition(pos, row)
+        terminal.write(msg)
+        terminal.cursorPosition(0, th - 1)
+        
+    def handle_input(self, key_id, modifier):
+        log.msg("key_id: {}, mod: {}".format(ord(key_id), modifier))
+        if key_id == 'q' or ord(key_id) == 27:
+            self.uninstall_dialog()
+            return True
+        return False
+
 
 def wrap_paras(text, width):
     """
