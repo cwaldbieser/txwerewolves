@@ -15,10 +15,18 @@ from six.moves import (
     zip,
 )
 from twisted.python import log
+from txwerewolves.dialogs import (
+    ChatDialog,
+    HelpDialog,
+)
 from txwerewolves import graphics_chars as gchars
 from txwerewolves import (
     session,
     users,
+)
+from txwerewolves.utils import (
+    wrap_paras,
+    peek_ahead
 )
 from txwerewolves.werewolf import WerewolfGame
 from twisted.conch.insults.text import (
@@ -253,17 +261,26 @@ class SSHGameProtocol(GameProtocol):
         """
         Handle user input.
         """ 
-        if key_id == 'h':
-            self._show_help()
-        dialog = self.dialog
         handled = False
-        if dialog is not None:
+        ORD_TAB = 9
+        dialog = self.dialog
+        if not handled and not dialog is None:
+            log.msg("Game handled dialog.")
             handled = dialog.handle_input(key_id, modifier)
+        if not handled and key_id == 'h':
+            self._show_help()
+            handled = True
+        if not handled and ord(key_id) == ORD_TAB:
+            log.msg("Game handled TAB.")
+            self._show_chat()
+            handled = True
         if not handled and not self.commands is None:
+            log.msg("Game attempting to handle input.")
             func = self.commands.get(key_id)
             if func is None:
                 func = self.commands.get('*', None)
             if not func is None:
+                log.msg("Game handled input.")
                 func()
         self.update_display() 
 
@@ -1114,99 +1131,11 @@ class SSHGameProtocol(GameProtocol):
         dialog = HelpDialog()
         self._install_dialog(dialog)
 
+    def _show_chat(self):
+        dialog = ChatDialog()
+        self._install_dialog(dialog)
+
     def _install_dialog(self, dialog):
         dialog.parent = weakref.ref(self)
         self.dialog = dialog
 
-class TermDialog(object):
-    parent = None
-    left = None
-    top = None
-    
-    def draw(self):
-        raise NotImplementedError()
-
-    def handle_input(self, key_id, modifier):
-        """
-        Handle input and return True
-        OR
-        return False for previous handler
-        """
-        raise NotImplementedError()
-
-    def uninstall_dialog(self):
-        self.parent().dialog = None
-
-class HelpDialog(TermDialog):
-
-    def draw(self):
-        """
-        Show help.
-        """
-        terminal = self.parent().terminal
-        tw, th = self.parent().term_size
-        help_w = int(tw * 0.8)
-        help_h = int(th * 0.6)
-        help_top = (th - help_h) // 2
-        help_left = (tw - help_w) // 2
-        self.left = help_left
-        self.top = help_top
-        pos = help_left
-        row = help_top
-        terminal.cursorPosition(pos, row)
-        terminal.write(gchars.DBORDER_UP_LEFT)
-        terminal.write(gchars.DBORDER_HORIZONTAL * (help_w - 2))
-        terminal.write(gchars.DBORDER_UP_RIGHT)
-        for n in range(help_h - 2):
-            row += 1
-            terminal.cursorPosition(pos, row)
-            terminal.write(gchars.DBORDER_VERTICAL)
-            terminal.write(" " * (help_w - 2))
-            terminal.write(gchars.DBORDER_VERTICAL)
-        row += 1
-        terminal.cursorPosition(pos, row)
-        terminal.write(gchars.DBORDER_DOWN_LEFT)
-        terminal.write(gchars.DBORDER_HORIZONTAL * (help_w - 2))
-        terminal.write(gchars.DBORDER_DOWN_RIGHT)
-        row = help_top + help_h // 2
-        msg = "This is a help message."
-        pos = help_left + (help_w - len(msg)) // 2
-        terminal.cursorPosition(pos, row)
-        terminal.write(msg)
-        terminal.cursorPosition(0, th - 1)
-        
-    def handle_input(self, key_id, modifier):
-        log.msg("key_id: {}, mod: {}".format(ord(key_id), modifier))
-        if key_id == 'q' or ord(key_id) == 27:
-            self.uninstall_dialog()
-            return True
-        return False
-
-
-def wrap_paras(text, width):
-    """
-    textwrap.wrap() for multiple paragraphs.
-    """
-    paras = text.split("\n")
-    lines = []
-    for para in paras:
-        lines.extend(textwrap.wrap(para, width, drop_whitespace=False))
-    return lines
-
-
-def peek_ahead(iterable):
-    """
-    yield (value, more) from an iterable where `more` is a boolean value that
-    indicates if there is another value yet to be yielded.
-    """
-    flag = False
-    prev_value = None
-    for value in iterable:
-        if not flag:
-            flag = True
-            prev_value = value
-            continue
-        yield (prev_value, True)
-        prev_value = value
-    yield (prev_value, False)
-        
