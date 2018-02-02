@@ -1,4 +1,5 @@
 
+import string
 import textwrap
 from txwerewolves.utils import (
     wrap_paras,
@@ -115,6 +116,8 @@ class HelpDialog(TermDialog):
 
 
 class ChatDialog(TermDialog):
+    linebuf = None 
+    prompt = ">>>"
 
     def draw(self):
         """
@@ -142,9 +145,14 @@ class ChatDialog(TermDialog):
         equator = self.equator
         pos = dlg_left + 2
         row = dlg_top + 1
-        prompt = ">>>"
+        prompt = self.prompt
         terminal.cursorPosition(pos, row)
         terminal.write(prompt) 
+        linebuf = self.linebuf
+        if linebuf is not None:
+            terminal.write(" ")
+            line = ''.join(linebuf)
+            terminal.write(line)
 
     def _draw_bg(self):
         terminal = self.terminal
@@ -178,12 +186,21 @@ class ChatDialog(TermDialog):
         terminal = self.terminal
         tw, th = self.term_size
         terminal.cursorPosition(0, th - 1)
+
+    def _echo(self, char):
+        linebuf = self.linebuf
+        if linebuf is None:
+            linebuf = []
+            self.linebuf = linebuf
+        linebuf.append(char)
         
     def handle_input(self, key_id, modifier):
         log.msg("key_id: {}, mod: {}".format(ord(key_id), modifier))
         if ord(key_id) == 9:
             self.uninstall_dialog()
             return True
+        elif key_id in string.printable and key_id not in '\t\n\r\x0b\x0c':
+            self._echo(key_id)
         return True
 
 
