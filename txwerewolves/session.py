@@ -22,6 +22,8 @@ class SessionRegistryInfo(object):
     members = attr.attrib(default=attr.Factory(set))
     owner = attr.attrib(default=None)
     game = attr.attrib(default=None)
+    chat_buf = attr.attrib(default=None)
+    chat_buf_size = attr.attrib(default=50)
 
 
 def create_session():
@@ -41,6 +43,8 @@ def create_session():
     if entry is None:
         raise Exception("Could not create session ID.")
     _session_registry[session_id] = entry
+    entry.chat_buf = []
+    entry.chat_buf_size = 50
     return entry
 
 def get_entry(session_id):

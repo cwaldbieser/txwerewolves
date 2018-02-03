@@ -116,8 +116,10 @@ class HelpDialog(TermDialog):
 
 
 class ChatDialog(TermDialog):
-    linebuf = None 
     prompt = ">>>"
+    input_buf = None
+    output_buf = None
+    line_pos = None
 
     def draw(self):
         """
@@ -148,10 +150,10 @@ class ChatDialog(TermDialog):
         prompt = self.prompt
         terminal.cursorPosition(pos, row)
         terminal.write(prompt) 
-        linebuf = self.linebuf
-        if linebuf is not None:
+        input_buf = self.input_buf
+        line = input_buf.getvalue()
+        if line is not None:
             terminal.write(" ")
-            line = ''.join(linebuf)
             terminal.write(line)
 
     def _draw_bg(self):
@@ -187,12 +189,22 @@ class ChatDialog(TermDialog):
         tw, th = self.term_size
         terminal.cursorPosition(0, th - 1)
 
+    def _get_input_home_pos(self):
+        pos = self.left + 2 + len(self.prompt) + 1
+        return pos
+        
+    def _reset_input(self):
+        pos = self._get_input_home_pos()
+        self.pos = pos
+        buf = self.input_buf
+        buf.truncate(0)
+
     def _echo(self, char):
-        linebuf = self.linebuf
-        if linebuf is None:
-            linebuf = []
-            self.linebuf = linebuf
-        linebuf.append(char)
+        buf = self.input_buf
+        buf.write(char)
+        pos = self._get_input_home_pos() + len(buf.getvalue())
+        terminal = self.terminal
+        terminal.cursorPosition(pos, 1)
         
     def handle_input(self, key_id, modifier):
         log.msg("key_id: {}, mod: {}".format(ord(key_id), modifier))

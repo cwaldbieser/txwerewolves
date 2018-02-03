@@ -225,6 +225,7 @@ class SSHGameProtocol(GameProtocol):
     game = None
     player_cards = None
     cards = None
+    input_buf = None
     _ready_to_advance = False
 
     @classmethod
@@ -255,6 +256,7 @@ class SSHGameProtocol(GameProtocol):
             instance.reactor.callLater(
                 0, game.deal_cards, werewolf_count, other_roles)
         instance.game = session_entry.game
+        instance.input_buf = six.StringIO()
         return instance
 
     def handle_input(self, key_id, modifier):
@@ -1133,6 +1135,14 @@ class SSHGameProtocol(GameProtocol):
 
     def _show_chat(self):
         dialog = ChatDialog()
+        input_buf = self.input_buf
+        log.msg("input_buf assigned.")
+        log.msg("buf is None: {}".format((input_buf is None)))
+        dialog.input_buf = input_buf
+        game = self.game
+        session_entry = session.get_entry(game.session_id)
+        output_buf = session_entry.chat_buf
+        dialog.output_buf = output_buf
         self._install_dialog(dialog)
 
     def _install_dialog(self, dialog):
