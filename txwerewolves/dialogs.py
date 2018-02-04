@@ -1,6 +1,10 @@
 
 import string
 import textwrap
+from txwerewolves import (
+    session,
+    users,
+)
 from txwerewolves.utils import (
     wrap_paras,
 )
@@ -269,6 +273,7 @@ class ChatDialog(TermDialog):
         output_buf = self.output_buf
         output_buf.append((self.user_id, ''.join(input_buf)))
         self._reset_input()
+        self._signal_dialogs_redraw()
         
     def handle_input(self, key_id, modifier):
         try:
@@ -292,4 +297,26 @@ class ChatDialog(TermDialog):
     def set_cursor_pos(self):
         self._position_input_cursor()
         return True
+
+    def _signal_dialogs_redraw(self):
+        user_id = self.user_id
+        game = self.parent().game
+        session_id = game.session_id
+        session_entry = session.get_entry(session_id)
+        members = set(session_entry.members)
+        members.discard(user_id)
+        for player in members:
+            user_entry = users.get_user_entry(player)
+            app_protocol = user_entry.app_protocol
+            
+            def _make_redraw_dialog(app_protocol):
+            
+                def _redraw_dialog():
+                    if not app_protocol.dialog is None:
+                        app_protocol.dialog.draw()    
+       
+                return _redraw_dialog
+
+            self.parent().reactor.callLater(0, _make_redraw_dialog(app_protocol))
+ 
 
