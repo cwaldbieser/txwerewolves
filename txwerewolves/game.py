@@ -256,7 +256,7 @@ class SSHGameProtocol(GameProtocol):
             instance.reactor.callLater(
                 0, game.deal_cards, werewolf_count, other_roles)
         instance.game = session_entry.game
-        instance.input_buf = six.StringIO()
+        instance.input_buf = []
         return instance
 
     def handle_input(self, key_id, modifier):
@@ -299,7 +299,13 @@ class SSHGameProtocol(GameProtocol):
         self._draw_phase_area()
         if not self.dialog is None:
             self.dialog.draw()
-        terminal.cursorPosition(0, th - 1)
+        dialog = self.dialog
+        if dialog is not None:
+            handled = dialog.set_cursor_pos()
+        else:
+            handled = False
+        if not handled:
+            terminal.cursorPosition(0, th - 1)
 
     def handle_next_phase(self):
         self._ready_to_advance = False
