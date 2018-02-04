@@ -18,6 +18,7 @@ from twisted.python import log
 from txwerewolves.dialogs import (
     ChatDialog,
     HelpDialog,
+    SessionAdminDialog,
 )
 from txwerewolves import graphics_chars as gchars
 from txwerewolves import (
@@ -265,6 +266,7 @@ class SSHGameProtocol(GameProtocol):
         """ 
         handled = False
         ORD_TAB = 9
+        ORD_CTRL_A = 1
         dialog = self.dialog
         if not handled and not dialog is None:
             log.msg("Game handled dialog.")
@@ -275,6 +277,10 @@ class SSHGameProtocol(GameProtocol):
         if not handled and ord(key_id) == ORD_TAB:
             log.msg("Game handled TAB.")
             self._show_chat()
+            handled = True
+        if not handled and ord(key_id) == ORD_CTRL_A:
+            log.msg("Game handled CTRL-A.")
+            self._show_session_admin()
             handled = True
         if not handled and not self.commands is None:
             log.msg("Game attempting to handle input.")
@@ -1149,6 +1155,10 @@ class SSHGameProtocol(GameProtocol):
         session_entry = session.get_entry(game.session_id)
         output_buf = session_entry.chat_buf
         dialog.output_buf = output_buf
+        self._install_dialog(dialog)
+
+    def _show_session_admin(self):
+        dialog = SessionAdminDialog()
         self._install_dialog(dialog)
 
     def _install_dialog(self, dialog):

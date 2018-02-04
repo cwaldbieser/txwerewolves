@@ -1,4 +1,5 @@
 
+from __future__ import division
 import string
 import textwrap
 from txwerewolves import (
@@ -105,6 +106,7 @@ class HelpDialog(TermDialog):
             h        - This help.
             q or ESC - Quit dialog.
             TAB      - Toggle chat window. 
+            CTRL-A   - Session admin mode.  Change game settings / restart.
             """)
         lines = wrap_paras(text, help_w - 4)
         row += 1
@@ -314,3 +316,74 @@ class ChatDialog(TermDialog):
             self.parent().reactor.callLater(0, _make_redraw_dialog(app_protocol))
  
 
+class SessionAdminDialog(TermDialog):
+    parent = None
+    left = None
+    top = None
+    dlg_title = "Session Admin"
+    
+    def draw(self):
+        self._compute_coords()
+        self._draw_box()
+        self._draw_title()
+
+    def _compute_coords(self):
+        tw, th = self.term_size
+        self.width = int(tw * 0.8)
+        self.height = int(th * 0.6)
+        self.top = (th - self.height) // 2
+        self.left = (tw - self.width) // 2
+
+    def _draw_title(self):
+        terminal = self.terminal
+        dlg_left = self.left
+        dlg_top = self.top
+        dlg_w = self.width
+        dlg_h = self.height
+        title = self.dlg_title
+        emca48 = A.bold[title, -A.bold[""]]
+        text = assembleFormattedText(emca48)
+        pos = dlg_left + (dlg_w - len(title)) // 2
+        row = dlg_top
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+
+    def _draw_box(self):
+        terminal = self.terminal
+        dlg_left = self.left
+        dlg_top = self.top
+        dlg_w = self.width
+        dlg_h = self.height
+        pos = dlg_left
+        row = dlg_top
+        terminal.cursorPosition(pos, row)
+        terminal.write(gchars.DBORDER_UP_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
+        terminal.write(gchars.DBORDER_UP_RIGHT)
+        for n in range(dlg_h - 2):
+            row += 1
+            terminal.cursorPosition(pos, row)
+            terminal.write(gchars.DBORDER_VERTICAL)
+            terminal.write(" " * (dlg_w - 2))
+            terminal.write(gchars.DBORDER_VERTICAL)
+        row += 1
+        terminal.cursorPosition(pos, row)
+        terminal.write(gchars.DBORDER_DOWN_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
+        terminal.write(gchars.DBORDER_DOWN_RIGHT)
+
+    def handle_input(self, key_id, modifier):
+        """
+        Handle input and return True
+        OR
+        return False for previous handler
+        """
+        try:
+            key_ord = ord(key_id)
+            log.msg("key_ord: {}, mod: {}".format(key_ord, modifier))
+        except TypeError as ex:
+            key_ord = None
+        log.msg("key_id: {}".format(key_id))
+        if key_id == 'q' or ord(key_id) == 27:
+            self.uninstall_dialog()
+        return True
