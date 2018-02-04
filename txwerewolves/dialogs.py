@@ -40,31 +40,25 @@ class TermDialog(object):
 
     @property
     def terminal(self):
-        log.msg("Getting terminal ...")
         obj = self.parent()
         while True:
             if hasattr(obj, 'terminal'):
-                log.msg("Terminal found.")
                 return obj.terminal
             obj = obj.parent()
 
     @property
     def term_size(self):
-        log.msg("Getting term size ...")
         obj = self.parent()
         while True:
             if hasattr(obj, 'term_size'):
-                log.msg("Term size found.")
                 return obj.term_size
             obj = obj.parent()
 
     @property
     def user_id(self):
-        log.msg("Getting user_id size ...")
         obj = self.parent()
         while True:
             if hasattr(obj, 'user_id'):
-                log.msg("user_id found.")
                 return obj.user_id
             obj = obj.parent()
 
