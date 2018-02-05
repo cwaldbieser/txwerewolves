@@ -322,13 +322,7 @@ class SessionAdminDialog(TermDialog):
     top = None
     dlg_title = "Session Admin"
     werewolves = 2
-    seer_flag = True
-    robber_flag = True
-    troublemaker_flag = True
-    minion_flag = False
-    insomniac_flag = False
-    hunter_flag = False
-    tanner_flag = False
+    role_flags = None
     
     def draw(self):
         self._compute_coords()
@@ -336,6 +330,20 @@ class SessionAdminDialog(TermDialog):
         self._draw_title()
         self._draw_instructions()
         self._draw_widgets()
+
+    def _get_role_flags(self):
+        role_flags = self.role_flags
+        if role_flags is None:
+            role_flags = {}
+            self.role_flags = role_flags
+            role_flags['seer'] = True
+            role_flags['robber'] = True
+            role_flags['troublemaker'] = True
+            role_flags['minion'] = False
+            role_flags['insomniac'] = False
+            role_flags['hunter'] = False
+            role_flags['tanner'] = False
+        return role_flags
 
     def _compute_coords(self):
         tw, th = self.term_size
@@ -413,13 +421,7 @@ class SessionAdminDialog(TermDialog):
         dlg_w = self.width
         dlg_h = self.height
         werewolves = self.werewolves
-        seer_flag = self.seer_flag
-        robber_flag = self.robber_flag
-        troublemaker_flag = self.troublemaker_flag
-        minion_flag = self.minion_flag
-        insomniac_flag = self.insomniac_flag
-        hunter_flag = self.hunter_flag
-        tanner_flag = self.tanner_flag
+        role_flags = self._get_role_flags()
         row = self.equator + 2
         col_w = (dlg_w - 2) // 2
 
@@ -430,10 +432,10 @@ class SessionAdminDialog(TermDialog):
                 return "N"
 
         flags = [
-            [("Seer:", bool2yn(seer_flag)), ("Robber:", bool2yn(robber_flag))],
-            [("Troublemaker:", bool2yn(troublemaker_flag)), ("Minion:", bool2yn(minion_flag))],
-            [("Insomniac:", bool2yn(insomniac_flag)), ("Hunter:", bool2yn(hunter_flag))],
-            [("Tanner:", bool2yn(tanner_flag)), ("Werewolves:", str(werewolves))],
+            [("Seer:", bool2yn(role_flags['seer'])), ("Robber:", bool2yn(role_flags['robber']))],
+            [("Troublemaker:", bool2yn(role_flags['troublemaker'])), ("Minion:", bool2yn(role_flags['minion']))],
+            [("Insomniac:", bool2yn(role_flags['insomniac'])), ("Hunter:", bool2yn(role_flags['hunter']))],
+            [("Tanner:", bool2yn(role_flags['tanner'])), ("Werewolves:", str(werewolves))],
         ] 
         label_len = 0
         for rinfo in flags:
@@ -479,6 +481,12 @@ class SessionAdminDialog(TermDialog):
         terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
         terminal.write(gchars.DBORDER_DOWN_RIGHT)
 
+    def _set_werewolves(self, count):
+        self.werewolves = count
+
+    def _toggle_flag(self, flag_name):
+        self.role_flags[flag_name] = not self.role_flags[flag_name]
+
     def handle_input(self, key_id, modifier):
         """
         Handle input and return True
@@ -493,6 +501,22 @@ class SessionAdminDialog(TermDialog):
         log.msg("key_id: {}".format(key_id))
         if key_id == 'q' or ord(key_id) == 27:
             self.uninstall_dialog()
+        elif key_id in '1234567890':
+            self._set_werewolves(int(key_id))
+        elif key_id == 's':
+            self._toggle_flag('seer')
+        elif key_id == 'r':
+            self._toggle_flag('robber')
+        elif key_id == 't':
+            self._toggle_flag('troublemaker')
+        elif key_id == 'm':
+            self._toggle_flag('minion')
+        elif key_id == 'i':
+            self._toggle_flag('insomniac')
+        elif key_id == 'h':
+            self._toggle_flag('hunter')
+        elif key_id == 'T':
+            self._toggle_flag('tanner')
         return True
 
 
