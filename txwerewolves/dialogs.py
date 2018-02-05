@@ -321,11 +321,21 @@ class SessionAdminDialog(TermDialog):
     left = None
     top = None
     dlg_title = "Session Admin"
+    werewolves = 2
+    seer_flag = True
+    robber_flag = True
+    troublemaker_flag = True
+    minion_flag = False
+    insomniac_flag = False
+    hunter_flag = False
+    tanner_flag = False
     
     def draw(self):
         self._compute_coords()
         self._draw_box()
         self._draw_title()
+        self._draw_instructions()
+        self._draw_widgets()
 
     def _compute_coords(self):
         tw, th = self.term_size
@@ -333,6 +343,7 @@ class SessionAdminDialog(TermDialog):
         self.height = int(th * 0.6)
         self.top = (th - self.height) // 2
         self.left = (tw - self.width) // 2
+        self.equator = self.top + 7
 
     def _draw_title(self):
         terminal = self.terminal
@@ -347,6 +358,170 @@ class SessionAdminDialog(TermDialog):
         row = dlg_top
         terminal.cursorPosition(pos, row)
         terminal.write(text)
+
+    def _draw_instructions(self):
+        terminal = self.terminal
+        dlg_left = self.left
+        dlg_top = self.top
+        dlg_w = self.width
+        dlg_h = self.height
+        row = dlg_top + 2
+        col_w = (dlg_w - 2) // 3
+        pos = dlg_left + 2
+        terminal.cursorPosition(pos, row)
+        text = "0-9: Set number of werewolves."
+        terminal.write(text)
+        row += 1
+        text = "s  : Toggle seer."
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+        row += 1
+        text = "r  : Toggle robber."
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+        row += 1
+        text = "t  : Toggle troublemaker."
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+        pos = dlg_left + 2 + col_w
+        row = dlg_top + 2
+        text = "m  : Toggle minion."
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+        row += 1
+        text = "i  : Toggle insomniac."
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+        row += 1
+        text = "i  : Toggle hunter."
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+        row += 1
+        text = "T  : Toggle tanner."
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+        pos = dlg_left + 2 + col_w * 2
+        row = dlg_top + 2
+        text = "^R : Reset game."
+        terminal.cursorPosition(pos, row)
+        terminal.write(text)
+         
+    def _draw_widgets(self):
+        terminal = self.terminal
+        dlg_left = self.left
+        dlg_top = self.top
+        dlg_w = self.width
+        dlg_h = self.height
+        werewolves = self.werewolves
+        seer_flag = self.seer_flag
+        robber_flag = self.robber_flag
+        troublemaker_flag = self.troublemaker_flag
+        minion_flag = self.minion_flag
+        insomniac_flag = self.insomniac_flag
+        hunter_flag = self.hunter_flag
+        tanner_flag = self.tanner_flag
+        row = self.equator + 2
+        col_w = (dlg_w - 2) // 2
+
+        def bool2yn(b):
+            if b:
+                return "Y"
+            else:
+                return "N"
+
+        flags = [
+            [("Seer:", bool2yn(seer_flag)), ("Robber:", bool2yn(robber_flag))],
+            [("Troublemaker:", bool2yn(troublemaker_flag)), ("Minion:", bool2yn(minion_flag))],
+            [("Insomniac:", bool2yn(insomniac_flag)), ("Hunter:", bool2yn(hunter_flag))],
+            [("Tanner:", bool2yn(tanner_flag)), ("Werewolves:", str(werewolves))],
+        ] 
+        label_len = 0
+        for rinfo in flags:
+            for label, flag in rinfo:
+                label_len = max(label_len, len(label))
+        label_len += 2
+        for rinfo in flags:
+            row += 1
+            for n, (label, flag) in enumerate(rinfo):
+                pos = dlg_left + 2 + n * col_w
+                terminal.cursorPosition(pos, row)
+                emca48 = A.bold[label, -A.bold[""]]
+                text = assembleFormattedText(emca48) 
+                terminal.write(text)                
+                terminal.cursorPosition(pos + label_len, row)
+                terminal.write(flag)
+
+    def _draw_box(self):
+        terminal = self.terminal
+        dlg_left = self.left
+        dlg_top = self.top
+        dlg_w = self.width
+        dlg_h = self.height
+        equator = self.equator
+        pos = dlg_left
+        row = dlg_top
+        terminal.cursorPosition(pos, row)
+        terminal.write(gchars.DBORDER_UP_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
+        terminal.write(gchars.DBORDER_UP_RIGHT)
+        for n in range(dlg_h - 2):
+            row += 1
+            terminal.cursorPosition(pos, row)
+            terminal.write(gchars.DBORDER_VERTICAL)
+            if row != equator:
+                terminal.write(" " * (dlg_w - 2))
+            else:
+                terminal.write(gchars.HORIZONTAL_DASHED * (dlg_w -2))
+            terminal.write(gchars.DBORDER_VERTICAL)
+        row += 1
+        terminal.cursorPosition(pos, row)
+        terminal.write(gchars.DBORDER_DOWN_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
+        terminal.write(gchars.DBORDER_DOWN_RIGHT)
+
+    def handle_input(self, key_id, modifier):
+        """
+        Handle input and return True
+        OR
+        return False for previous handler
+        """
+        try:
+            key_ord = ord(key_id)
+            log.msg("key_ord: {}, mod: {}".format(key_ord, modifier))
+        except TypeError as ex:
+            key_ord = None
+        log.msg("key_id: {}".format(key_id))
+        if key_id == 'q' or ord(key_id) == 27:
+            self.uninstall_dialog()
+        return True
+
+
+class BriefMessageDialog(TermDialog):
+    parent = None
+    left = None
+    top = None
+    brief_message = None
+    _lines = None
+    msg_duration = 5
+    
+    def draw(self):
+        self._compute_coords()
+        self._draw_box()
+        self._draw_msg()
+        self._schedule_close_dlg()
+
+    def _schedule_close_dlg(self):
+        self.parent().reactor.callLater(self.msg_duration, self.uninstall_dialog)
+
+    def _compute_coords(self):
+        tw, th = self.term_size
+        self.width = int(tw * 0.5)
+        msg = self.brief_message
+        lines = wrap_paras(msg, self.width - 4)
+        self._lines = lines
+        self.height = min(int(th * 0.6), max(len(lines) + 2, 5))
+        self.top = (th - self.height) // 2
+        self.left = (tw - self.width) // 2
 
     def _draw_box(self):
         terminal = self.terminal
@@ -371,6 +546,23 @@ class SessionAdminDialog(TermDialog):
         terminal.write(gchars.DBORDER_DOWN_LEFT)
         terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
         terminal.write(gchars.DBORDER_DOWN_RIGHT)
+
+    def _draw_msg(self):
+        terminal = self.terminal
+        dlg_left = self.left
+        dlg_top = self.top
+        dlg_w = self.width
+        dlg_h = self.height
+        row = dlg_top + 1
+        if len(self._lines) < dlg_h:
+            row = (dlg_h - len(self._lines)) // 2 + dlg_top
+        lines = self._lines
+        msg_len = max(len(line) for line in lines)
+        pos = dlg_left + (dlg_w - msg_len) // 2
+        for line in lines:
+            terminal.cursorPosition(pos, row)
+            terminal.write(line)
+            row += 1
 
     def handle_input(self, key_id, modifier):
         """

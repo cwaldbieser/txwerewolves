@@ -16,6 +16,7 @@ from six.moves import (
 )
 from twisted.python import log
 from txwerewolves.dialogs import (
+    BriefMessageDialog,
     ChatDialog,
     HelpDialog,
     SessionAdminDialog,
@@ -1158,8 +1159,18 @@ class SSHGameProtocol(GameProtocol):
         self._install_dialog(dialog)
 
     def _show_session_admin(self):
-        dialog = SessionAdminDialog()
-        self._install_dialog(dialog)
+        # Check permission
+        game = self.game
+        session_entry = session.get_entry(game.session_id)
+        owner = session_entry.owner
+        if owner == self.user_id:
+        # Create dialog.
+            dialog = SessionAdminDialog()
+            self._install_dialog(dialog)
+        else:
+            dialog = BriefMessageDialog()
+            dialog.brief_message = "Only the session administrator can modify game settings."
+            self._install_dialog(dialog)
 
     def _install_dialog(self, dialog):
         dialog.parent = weakref.ref(self)
