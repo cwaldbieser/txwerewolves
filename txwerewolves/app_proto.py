@@ -69,3 +69,10 @@ class SSHApplicationProtocol(TerminalProtocol):
     def connectionLost(self, reason):
         pass
 
+    def install_application_adapter(self, proto):
+        self.app_protocol = proto
+        self.terminal.reset()
+        self.reactor.callLater(0, proto.update_display)
+        user_entry = users.get_user_entry(self.user_id)
+        user_entry.app_protocol = proto
+

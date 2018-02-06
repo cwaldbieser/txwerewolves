@@ -10,6 +10,7 @@ from txwerewolves.utils import (
     wrap_paras,
 )
 from txwerewolves import graphics_chars as gchars
+from txwerewolves.werewolf import WerewolfGame
 from twisted.conch.insults.text import (
     attributes as A,
     assembleFormattedText,
@@ -487,6 +488,52 @@ class SessionAdminDialog(TermDialog):
     def _toggle_flag(self, flag_name):
         self.role_flags[flag_name] = not self.role_flags[flag_name]
 
+    def _reset_game(self):
+        log.msg("Entered _reset_game().")
+        role_flags = self._get_role_flags()
+        werewolves = self.werewolves
+        wg = WerewolfGame
+        deck = set([])
+        roles = [
+            ('seer', wg.CARD_SEER),
+            ('robber', wg.CARD_ROBBER),
+            ('troublemaker', wg.CARD_TROUBLEMAKER),
+            ('minion', wg.CARD_MINION),
+            ('insomniac', wg.CARD_INSOMNIAC),
+            ('hunter', wg.CARD_HUNTER),
+            ('tanner', wg.CARD_TANNER),
+        ]
+        for name, card in roles:
+            if role_flags[name]:
+                deck.add(card)
+        parent = self.parent()
+        user_id = parent.user_id
+        make_protocol = parent.__class__.make_protocol
+        user_entry = users.get_user_entry(parent.user_id)
+        session_entry = session.get_entry(user_entry.joined_id)
+        members_set = set(session_entry.members)
+        members_set.discard(user_id)
+        members = [user_id]
+        members.extend(list(members_set))
+        for player in members:
+            if user_id == player:
+                reset = True
+            else:
+                reset = False
+            user_entry = users.get_user_entry(player)
+            app_protocol = user_entry.app_protocol
+            proto = make_protocol(
+                user_id=player,
+                terminal=app_protocol.terminal,
+                term_size=app_protocol.term_size,
+                parent=app_protocol.parent,
+                reactor=app_protocol.reactor,
+                roles=deck,
+                werewolves=werewolves,
+                reset=reset)
+            app_protocol.parent().install_application_adapter(proto)
+        log.msg("Installed application.")
+
     def handle_input(self, key_id, modifier):
         """
         Handle input and return True
@@ -517,6 +564,8 @@ class SessionAdminDialog(TermDialog):
             self._toggle_flag('hunter')
         elif key_id == 'T':
             self._toggle_flag('tanner')
+        elif key_ord == 18: # CTRL-R
+            self._reset_game()
         return True
 
 

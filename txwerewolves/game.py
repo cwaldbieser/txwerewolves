@@ -233,20 +233,23 @@ class SSHGameProtocol(GameProtocol):
     @classmethod
     def make_protocol(klass, **kwds):
         instance = klass()
+        log.msg("Created game adapter instance.")
         for k, v in kwds.items():
-            setattr(instance, k, v)
+            if hasattr(instance, k):
+                setattr(instance, k, v)
+                log.msg("Set attrib {}: '{}'".format(k, v))
         instance.commands = {}
         entry = users.get_user_entry(instance.user_id)
         session_entry = session.get_entry(entry.joined_id)
-        players = session_entry.members
-        if session_entry.game is None:
+        if session_entry.game is None or kwds.get('reset', False):
+            players = session_entry.members
             game = HandledWerewolfGame()
             session_entry.game = game
             game.session_id = session_entry.session_id
             game.add_players(players)
-            werewolf_count = 2
+            werewolf_count = kwds.get('werewolves', 2)
             wg = WerewolfGame
-            other_roles = set([
+            other_roles = kwds.get('roles', set([
                 wg.CARD_SEER,
                 wg.CARD_ROBBER,
                 wg.CARD_TROUBLEMAKER,
@@ -254,10 +257,12 @@ class SSHGameProtocol(GameProtocol):
                 wg.CARD_INSOMNIAC,
                 wg.CARD_HUNTER,
                 wg.CARD_TANNER,
-            ])
+            ]))
             instance.reactor.callLater(
                 0, game.deal_cards, werewolf_count, other_roles)
+            log.msg("Created new game instance.")
         instance.game = session_entry.game
+        log.msg("Attached game to adapter.")
         instance.input_buf = []
         return instance
 
