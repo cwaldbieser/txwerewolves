@@ -4,6 +4,7 @@ from __future__ import (
     division,
     print_function,
 )
+import weakref
 from txwerewolves import (
     session,
     users,
@@ -200,13 +201,24 @@ class SSHLobbyProtocol(LobbyProtocol):
     terminal = None
     term_size = (80, 24)
     user_id = None
+    dialog = None
+    instructions = ""
+    valid_commands = None
+    status = ""
+    output = ""
 
-    def __init__(self):
-        self.dialog = None
-        self.instructions = ""
-        self.status = ""
-        self.output = ""
-        self.valid_commands = {}
+    @classmethod
+    def make_instance(klass, reactor, terminal, user_id, parent):
+        """
+        Create a Lobby protocol.
+        """
+        lobby = klass()
+        lobby.reactor = reactor
+        lobby.terminal = terminal
+        lobby.user_id = user_id
+        lobby.parent = weakref.ref(parent)
+        lobby.valid_commands = {}
+        return lobby
 
     def update_display(self):
         """
