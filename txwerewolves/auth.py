@@ -5,7 +5,7 @@ from __future__ import (
 )
 import uuid
 from txwerewolves import users
-from txwerewolves.app_proto import makeSSHApplicationProtocol
+from txwerewolves.term import make_terminal_adapter
 from twisted.cred.portal import IRealm
 from twisted.conch.avatar import ConchUser
 from twisted.conch.insults.insults import ServerProtocol
@@ -49,7 +49,7 @@ class SSHAvatar(ConchUser):
 
     def openShell(self, protocol):
         serverProto = ServerProtocol2(
-            makeSSHApplicationProtocol, self.reactor, self.user_id)
+            make_terminal_adapter, self.reactor, self.user_id)
         serverProto.makeConnection(protocol)
         protocol.makeConnection(wrapProtocol(serverProto))
         self.ssh_protocol = serverProto

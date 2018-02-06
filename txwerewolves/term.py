@@ -13,14 +13,18 @@ from twisted.conch.insults.insults import TerminalProtocol
 from twisted.python import log
 from textwrap import dedent
 
-def makeSSHApplicationProtocol(reactor, user_id):
-    proto = SSHApplicationProtocol()
+def make_terminal_adapter(reactor, user_id):
+    """
+    Create an instance of a protocol that adapts the client terminal
+    to a terminal-based application.
+    """
+    proto = TerminalAdapterProtocol()
     proto.reactor = reactor
     proto.user_id = user_id
     return proto
 
 
-class SSHApplicationProtocol(TerminalProtocol):
+class TerminalAdapterProtocol(TerminalProtocol):
     CTRL_D = '\x04'
     reactor = None
     user_id = None
