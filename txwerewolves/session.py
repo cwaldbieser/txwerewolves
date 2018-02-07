@@ -21,7 +21,7 @@ class SessionRegistryInfo(object):
     session_id = attr.attrib()
     members = attr.attrib(default=attr.Factory(set))
     owner = attr.attrib(default=None)
-    game = attr.attrib(default=None)
+    appstate = attr.attrib(default=None)
     chat_buf = attr.attrib(default=None)
     chat_buf_size = attr.attrib(default=50)
 

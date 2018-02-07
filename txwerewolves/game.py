@@ -241,10 +241,10 @@ class SSHGameProtocol(GameProtocol):
         instance.commands = {}
         entry = users.get_user_entry(instance.user_id)
         session_entry = session.get_entry(entry.joined_id)
-        if session_entry.game is None or kwds.get('reset', False):
+        if session_entry.appstate is None or kwds.get('reset', False):
             players = session_entry.members
             game = HandledWerewolfGame()
-            session_entry.game = game
+            session_entry.appstate = game
             game.session_id = session_entry.session_id
             game.add_players(players)
             werewolf_count = kwds.get('werewolves', 2)
@@ -261,7 +261,7 @@ class SSHGameProtocol(GameProtocol):
             instance.reactor.callLater(
                 0, game.deal_cards, werewolf_count, other_roles)
             log.msg("Created new game instance.")
-        instance.game = session_entry.game
+        instance.game = session_entry.appstate
         log.msg("Attached game to adapter.")
         instance.input_buf = []
         return instance
