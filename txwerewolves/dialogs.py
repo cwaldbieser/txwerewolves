@@ -311,6 +311,9 @@ class ChatDialog(TermDialog):
                 def _redraw_dialog():
                     if not app_protocol.dialog is None:
                         app_protocol.dialog.draw()    
+                    else:
+                        app_protocol.new_chat_flag = True
+                        app_protocol.update_display()
        
                 return _redraw_dialog
 

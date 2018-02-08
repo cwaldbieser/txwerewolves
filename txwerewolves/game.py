@@ -219,6 +219,7 @@ class SSHGameProtocol(TerminalApplication):
     commands = None
     game = None
     input_buf = None
+    new_chat_flag = False
     player_cards = None
     _ready_to_advance = False
 
@@ -381,12 +382,15 @@ class SSHGameProtocol(TerminalApplication):
         player = self.user_id
         terminal = self.terminal
         tw, th = self.term_size
-        terminal.cursorPosition(2, 3)
+        pos = 2
+        row = 3
+        terminal.cursorPosition(pos, row)
         truncated_player = player[:10]
         emca48 = A.bold["Player: ", -A.bold[truncated_player]]
         text = assembleFormattedText(emca48)
         terminal.write(text)
-        terminal.cursorPosition(2, 4)
+        row += 1
+        terminal.cursorPosition(pos, row)
         game = self.game
         player_cards = game.player_cards
         card = player_cards[player]
@@ -394,6 +398,12 @@ class SSHGameProtocol(TerminalApplication):
         emca48 = A.bold["Dealt role: ", -A.bold[card_name]]
         text = assembleFormattedText(emca48)
         terminal.write(text)
+        if self.new_chat_flag:
+            row += 1
+            emca48 = A.bold["New chat message", -A.bold[""]]
+            text = assembleFormattedText(emca48)
+            terminal.cursorPosition(pos, row)
+            terminal.write(text)
 
     def _draw_game_info_area(self):
         """
@@ -1154,6 +1164,7 @@ class SSHGameProtocol(TerminalApplication):
         output_buf = session_entry.chat_buf
         dialog.output_buf = output_buf
         self._install_dialog(dialog)
+        self.new_chat_flag = False
 
     def _show_session_admin(self):
         # Check permission
