@@ -15,6 +15,7 @@ from six.moves import (
     zip,
 )
 from twisted.python import log
+from txwerewolves.apps import TerminalApplication
 from txwerewolves.dialogs import (
     BriefMessageDialog,
     ChatDialog,
@@ -212,22 +213,13 @@ class HandledWerewolfGame(WerewolfGame):
         self.eliminate_players(most_votes)
             
     
-class GameProtocol(object):
-    game = None
-    user_id = None
 
-
-class SSHGameProtocol(GameProtocol):
-    reactor = None
-    terminal = None
-    term_size = (80, 24)
-    parent = None
-    commands = None
-    dialog = None
-    game = None
-    player_cards = None
+class SSHGameProtocol(TerminalApplication):
     cards = None
+    commands = None
+    game = None
     input_buf = None
+    player_cards = None
     _ready_to_advance = False
 
     @classmethod
@@ -1180,4 +1172,10 @@ class SSHGameProtocol(GameProtocol):
     def _install_dialog(self, dialog):
         dialog.parent = weakref.ref(self)
         self.dialog = dialog
+
+    def signal_shutdown(self):
+        """
+        Allow the app to shutdown gracefully.
+        """
+        log.msg("signal_shutdown() called ...")
 

@@ -17,12 +17,12 @@ from twisted.conch.insults.text import (
 )
 from twisted.internet import defer
 from twisted.python import log
-from txwerewolves.todo import TodoProtocol
+from txwerewolves.apps import TerminalApplication
 from txwerewolves.game import SSHGameProtocol
 from txwerewolves import graphics_chars as gchars
 
 
-class LobbyProtocol(object):
+class LobbyMachine(object):
     _machine = MethodicalMachine()
 
     # ---------------
@@ -100,12 +100,6 @@ class LobbyProtocol(object):
         """
 
     @_machine.input()
-    def start_session(self):
-        """
-        Received acceptances to all invitations sent.
-        """
-
-    @_machine.input()
     def cancel(self):
         """
         Cancel a session that has not yet been started if you are the owner.
@@ -137,49 +131,43 @@ class LobbyProtocol(object):
 
     @_machine.output()
     def _enter_unjoined(self):
-        self.handle_unjoined()
+        self._call_handler(self.handle_unjoined)
 
     @_machine.output()
     def _enter_invited(self):
-        self.handle_invited()
+        self._call_handler(self.handle_invited)
 
     @_machine.output()
     def _enter_accepted(self):
-        self.handle_accepted()
+        self._call_handler(self.handle_accepted)
 
     @_machine.output()
     def _enter_waiting_for_accepts(self):
-        self.handle_waiting_for_accepts()
+        self._call_handler(self.handle_waiting_for_accepts)
 
     @_machine.output()
     def _enter_session_started(self):
-        self.handle_session_started()
+        self._call_handler(self.handle_session_started)
 
     @_machine.output()
     def _enter_invited(self):
-        self.handle_invited()
+        self._call_handler(self.handle_invited)
 
     # --------------
     # Event handlers
     # --------------
 
-    def handle_unjoined(self):
-        raise NotImplementedError()
-    
-    def handle_invited(self):
-        raise NotImplementedError()
-    
-    def handle_accepted(self):
-        raise NotImplementedError()
-    
-    def handle_waiting_for_accepts(self):
-        raise NotImplementedError()
-    
-    def handle_session_started(self):
-        raise NotImplementedError()
-    
-    def handle_invited(self):
-        raise NotImplementedError()
+    @staticmethod
+    def _call_handler(handler):
+        if handler is not None:
+            handler()
+
+    handle_unjoined = None
+    handle_invited = None
+    handle_accepted = None
+    handle_waiting_for_accepts = None
+    handle_session_started = None
+    handle_invited = None
     
     # -----------
     # Transitions
@@ -196,12 +184,8 @@ class LobbyProtocol(object):
     accepted.upon(cancel, enter=unjoined, outputs=[_enter_unjoined])
 
 
-class SSHLobbyProtocol(LobbyProtocol):
-    parent = None
-    terminal = None
-    term_size = (80, 24)
-    user_id = None
-    dialog = None
+class SSHLobbyProtocol(TerminalApplication):
+    lobby = None
     instructions = ""
     valid_commands = None
     status = ""
@@ -212,12 +196,21 @@ class SSHLobbyProtocol(LobbyProtocol):
         """
         Create a Lobby protocol.
         """
+        lobby_machine = LobbyMachine()
         lobby = klass()
+        lobby.lobby = lobby_machine
         lobby.reactor = reactor
         lobby.terminal = terminal
         lobby.user_id = user_id
         lobby.parent = weakref.ref(parent)
         lobby.valid_commands = {}
+        lobby_machine.handle_unjoined = lobby.handle_unjoined
+        lobby_machine.handle_invited = lobby.handle_invited
+        lobby_machine.handle_accepted = lobby.handle_accepted
+        lobby_machine.handle_waiting_for_accepts = lobby.handle_waiting_for_accepts
+        lobby_machine.handle_session_started = lobby.handle_session_started
+        lobby_machine.handle_invited = lobby.handle_invited
+        lobby_machine.initialize()
         return lobby
 
     def update_display(self):
@@ -298,6 +291,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         terminal = self.terminal
         tw, th = self.term_size
         instructions = self.instructions
+        log.msg("instructions: '{}'".format(instructions))
         text_lines = instructions.split("\n")
         instructions = []
         for text_line in text_lines:
@@ -404,7 +398,7 @@ class SSHLobbyProtocol(LobbyProtocol):
             term_size=self.term_size,
             parent=self.parent,
             reactor=self.reactor)
-        self.parent().install_application_adapter(proto)
+        self.parent().install_application(proto)
 
     def handle_invited(self):
         user_entry = users.get_user_entry(self.user_id)
@@ -463,7 +457,7 @@ class SSHLobbyProtocol(LobbyProtocol):
             user_entry.joined_id = session_entry.session_id
             session_entry.owner = this_player
             session_entry.members.add(this_player)
-            self.create_session()
+            self.lobby.create_session()
         dialog = ChoosePlayerDialog()
         self.dialog = dialog
         self.dialog.parent = self
@@ -493,13 +487,13 @@ class SSHLobbyProtocol(LobbyProtocol):
         my_entry.joined_id = session_id
         my_entry.invited_id = None
         session_entry.members.add(user_id)
-        self.accept()
+        self.lobby.accept()
 
     def _reject_invitation(self):
         user_id = self.user_id
         my_entry = users.get_user_entry(user_id)
         my_entry.invited_id = None
-        self.reject()
+        self.lobby.reject()
         
 
     def _leave_session(self):
@@ -509,7 +503,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         my_entry.joined_id = None
         session_entry = session.get_entry(session_id)
         session_entry.members.discard(user_id)
-        self.cancel()
+        self.lobby.cancel()
 
     def _start_session(self):
         user_id = self.user_id
@@ -519,7 +513,7 @@ class SSHLobbyProtocol(LobbyProtocol):
         members = session_entry.members 
         for member in members:
             entry = users.get_user_entry(member)
-            entry.app_protocol.start_session()
+            entry.app_protocol.lobby.start_session()
 
     def _cancel_session(self):
         user_id = self.user_id
@@ -532,7 +526,7 @@ class SSHLobbyProtocol(LobbyProtocol):
             entry = users.get_user_entry(member)
             entry.joined_id = None
             entry.invited_id = None
-            entry.app_protocol.cancel()
+            entry.app_protocol.lobby.cancel()
 
     def handle_input(self, key_id, modifiers):
         """
@@ -547,13 +541,11 @@ class SSHLobbyProtocol(LobbyProtocol):
             func()
         self.update_display()
 
-    def terminalSize(self, w, h):
+    def signal_shutdown(self):
         """
-        Handles when the terminal is resized.
+        Allow the app to shutdown gracefully.
         """
-        self.terminal.reset()
-        self.term_size = (w, h)
-        self.update_display()
+        pass
 
 
 class AbstractDialog(object):
@@ -696,9 +688,9 @@ class ChoosePlayerDialog(AbstractDialog):
             self._cancel_dialog()
             return
         other_entry.invited_id = my_entry.joined_id
-        other_entry.app_protocol.receive_invitation()
+        other_entry.app_protocol.lobby.receive_invitation()
         parent.output = "Sent invite to '{}'.".format(player)
-        my_entry.app_protocol.send_invitation()
+        my_entry.app_protocol.lobby.send_invitation()
         self.parent.dialog = None
         self.parent = None
 

@@ -531,7 +531,7 @@ class SessionAdminDialog(TermDialog):
                 roles=deck,
                 werewolves=werewolves,
                 reset=reset)
-            app_protocol.parent().install_application_adapter(proto)
+            app_protocol.parent().install_application(proto)
         log.msg("Installed application.")
 
     def handle_input(self, key_id, modifier):

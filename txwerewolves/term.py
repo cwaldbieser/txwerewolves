@@ -26,6 +26,7 @@ def make_terminal_adapter(reactor, user_id):
 
 class TerminalAdapterProtocol(TerminalProtocol):
     CTRL_D = '\x04'
+    CTRL_X = '\x18'
     reactor = None
     user_id = None
 
@@ -45,6 +46,8 @@ class TerminalAdapterProtocol(TerminalProtocol):
             self.terminal.loseConnection()
         elif key_id == 'R':
             self.app_protocol.update_display()
+        elif key_id == self.CTRL_X:
+            self._reset_app_protocol()
         else:
             self.app_protocol.handle_input(key_id, modifier)
 
@@ -73,7 +76,6 @@ class TerminalAdapterProtocol(TerminalProtocol):
                 self
             )
             entry.app_protocol = app_protocol
-            app_protocol.initialize()
         app_protocol = entry.app_protocol
         app_protocol.reactor = self.reactor
         app_protocol.terminal = self.terminal
@@ -82,10 +84,21 @@ class TerminalAdapterProtocol(TerminalProtocol):
         self.terminal.reset()
         app_protocol.update_display()
 
+    def _reset_app_protocol(self):
+        """
+        Reset the application to a lobby.
+        """
+        user_id = self.user_id
+        entry = users.get_user_entry(user_id)
+        app_protocol = entry.app_protocol
+        app_protocol.signal_shutdown()
+        entry.app_protocol = None
+        self._init_app_protocol()
+
     def connectionLost(self, reason):
         pass
 
-    def install_application_adapter(self, proto):
+    def install_application(self, proto):
         self.app_protocol = proto
         self.terminal.reset()
         self.reactor.callLater(0, proto.update_display)
