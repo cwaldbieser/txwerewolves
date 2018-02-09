@@ -1,4 +1,6 @@
 
+import weakref
+
 
 class TerminalApplication(object):
     """
@@ -16,6 +18,10 @@ class TerminalApplication(object):
         Handle terminal input.
         """
         raise NotImplementedError()
+
+    def install_dialog(self, dialog):
+        dialog.parent = weakref.ref(self)
+        self.dialog = dialog
 
     def signal_shutdown(self, **kwds):
         """

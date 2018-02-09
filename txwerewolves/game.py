@@ -1144,7 +1144,7 @@ class SSHGameProtocol(TerminalApplication):
 
     def _show_help(self):
         dialog = HelpDialog()
-        self._install_dialog(dialog)
+        self.install_dialog(dialog)
 
     def _show_chat(self):
         dialog = ChatDialog()
@@ -1154,7 +1154,7 @@ class SSHGameProtocol(TerminalApplication):
         session_entry = session.get_entry(game.session_id)
         output_buf = session_entry.chat_buf
         dialog.output_buf = output_buf
-        self._install_dialog(dialog)
+        self.install_dialog(dialog)
         self.new_chat_flag = False
 
     def _show_session_admin(self):
@@ -1165,15 +1165,11 @@ class SSHGameProtocol(TerminalApplication):
         if owner == self.user_id:
         # Create dialog.
             dialog = SessionAdminDialog()
-            self._install_dialog(dialog)
+            self.install_dialog(dialog)
         else:
             dialog = BriefMessageDialog()
             dialog.brief_message = "Only the session administrator can modify game settings."
-            self._install_dialog(dialog)
-
-    def _install_dialog(self, dialog):
-        dialog.parent = weakref.ref(self)
-        self.dialog = dialog
+            self.install_dialog(dialog)
 
     def signal_shutdown(self, signal=True, **kwds):
         """
@@ -1208,7 +1204,7 @@ class SSHGameProtocol(TerminalApplication):
                 app_protocol,
                 msg,
                 on_close=_make_handler(app_protocol))
-            app_protocol._install_dialog(dialog)
+            app_protocol.install_dialog(dialog)
             app_protocol.update_display()
 
 

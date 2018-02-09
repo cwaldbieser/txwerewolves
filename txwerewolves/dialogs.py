@@ -331,7 +331,7 @@ class SessionAdminDialog(TermDialog):
     
     def draw(self):
         self._compute_coords()
-        self._draw_box()
+        draw_dialog_frame(self)
         self._draw_title()
         self._draw_instructions()
         self._draw_widgets()
@@ -458,34 +458,6 @@ class SessionAdminDialog(TermDialog):
                 terminal.cursorPosition(pos + label_len, row)
                 terminal.write(flag)
 
-    def _draw_box(self):
-        terminal = self.terminal
-        dlg_left = self.left
-        dlg_top = self.top
-        dlg_w = self.width
-        dlg_h = self.height
-        equator = self.equator
-        pos = dlg_left
-        row = dlg_top
-        terminal.cursorPosition(pos, row)
-        terminal.write(gchars.DBORDER_UP_LEFT)
-        terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
-        terminal.write(gchars.DBORDER_UP_RIGHT)
-        for n in range(dlg_h - 2):
-            row += 1
-            terminal.cursorPosition(pos, row)
-            terminal.write(gchars.DBORDER_VERTICAL)
-            if row != equator:
-                terminal.write(" " * (dlg_w - 2))
-            else:
-                terminal.write(gchars.HORIZONTAL_DASHED * (dlg_w -2))
-            terminal.write(gchars.DBORDER_VERTICAL)
-        row += 1
-        terminal.cursorPosition(pos, row)
-        terminal.write(gchars.DBORDER_DOWN_LEFT)
-        terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
-        terminal.write(gchars.DBORDER_DOWN_RIGHT)
-
     def _set_werewolves(self, count):
         self.werewolves = count
 
@@ -583,7 +555,7 @@ class BriefMessageDialog(TermDialog):
     
     def draw(self):
         self._compute_coords()
-        self._draw_box()
+        draw_dialog_frame(self)
         self._draw_msg()
         self._schedule_close_dlg()
 
@@ -599,30 +571,6 @@ class BriefMessageDialog(TermDialog):
         self.height = min(int(th * 0.6), max(len(lines) + 2, 5))
         self.top = (th - self.height) // 2
         self.left = (tw - self.width) // 2
-
-    def _draw_box(self):
-        terminal = self.terminal
-        dlg_left = self.left
-        dlg_top = self.top
-        dlg_w = self.width
-        dlg_h = self.height
-        pos = dlg_left
-        row = dlg_top
-        terminal.cursorPosition(pos, row)
-        terminal.write(gchars.DBORDER_UP_LEFT)
-        terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
-        terminal.write(gchars.DBORDER_UP_RIGHT)
-        for n in range(dlg_h - 2):
-            row += 1
-            terminal.cursorPosition(pos, row)
-            terminal.write(gchars.DBORDER_VERTICAL)
-            terminal.write(" " * (dlg_w - 2))
-            terminal.write(gchars.DBORDER_VERTICAL)
-        row += 1
-        terminal.cursorPosition(pos, row)
-        terminal.write(gchars.DBORDER_DOWN_LEFT)
-        terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
-        terminal.write(gchars.DBORDER_DOWN_RIGHT)
 
     def _draw_msg(self):
         terminal = self.terminal
@@ -678,7 +626,7 @@ class SystemMessageDialog(TermDialog):
     
     def draw(self):
         self._compute_coords()
-        self._draw_box()
+        draw_dialog_frame(self)
         self._draw_msg()
         self._schedule_close_dlg()
 
@@ -695,30 +643,6 @@ class SystemMessageDialog(TermDialog):
         self.height = min(int(th * 0.6), max(len(lines) + 2, 5))
         self.top = (th - self.height) // 2
         self.left = (tw - self.width) // 2
-
-    def _draw_box(self):
-        terminal = self.terminal
-        dlg_left = self.left
-        dlg_top = self.top
-        dlg_w = self.width
-        dlg_h = self.height
-        pos = dlg_left
-        row = dlg_top
-        terminal.cursorPosition(pos, row)
-        terminal.write(gchars.DBORDER_UP_LEFT)
-        terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
-        terminal.write(gchars.DBORDER_UP_RIGHT)
-        for n in range(dlg_h - 2):
-            row += 1
-            terminal.cursorPosition(pos, row)
-            terminal.write(gchars.DBORDER_VERTICAL)
-            terminal.write(" " * (dlg_w - 2))
-            terminal.write(gchars.DBORDER_VERTICAL)
-        row += 1
-        terminal.cursorPosition(pos, row)
-        terminal.write(gchars.DBORDER_DOWN_LEFT)
-        terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
-        terminal.write(gchars.DBORDER_DOWN_RIGHT)
 
     def _draw_msg(self):
         terminal = self.terminal
@@ -755,7 +679,176 @@ class SystemMessageDialog(TermDialog):
         except TypeError as ex:
             key_ord = None
         log.msg("key_id: {}".format(key_id))
-        if key_id == 'q' or key_id == '\r' or ord(key_id) == 27:
+        if key_id in ' q\r' or ord(key_id) == 27:
             self._quit()
         return True
+
+
+class ChoosePlayerDialog(TermDialog):
+    """
+    A dialog for choosing a player.
+    """
+    title = " Choose Player ... "
+    start_row = 16
+    players = None
+    player_pos = 0
+
+    def draw(self):
+        parent = self.parent
+        title = self.title
+        terminal = self.parent.terminal
+        tw, th = self.parent.term_size
+        row = self.start_row
+        dialog_x = 2
+        dialog_w = tw - 4
+        pos = dialog_x
+        terminal.cursorPosition(pos, row)
+        terminal.write(gchars.DBORDER_UP_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (tw - 6))
+        terminal.write(gchars.DBORDER_UP_RIGHT)
+        pos = (tw - len(title)) // 2
+        terminal.cursorPosition(pos, row)
+        terminal.write(title)
+        msg = textwrap.dedent(u"""\
+            {} - Scroll up       {}   - Scroll down
+            i - invite player   q - cancel 
+            """).format(gchars.UP_ARROW, gchars.DOWN_ARROW).encode('utf-8')
+        textlines = msg.split("\n")
+        termlines = []
+        for textline in textlines:
+            lines = textwrap.wrap(textline, width=(tw - 4), replace_whitespace=False) 
+            termlines.extend(lines)
+        maxw = max(len(line) for line in termlines)
+        row += 1
+        self._blank_dialog_line(row)
+        row += 1
+        pos = (tw - maxw) // 2
+        for line in termlines:
+            self._blank_dialog_line(row)
+            terminal.cursorPosition(pos, row)
+            terminal.write(line)
+            row += 1
+        self._blank_dialog_line(row)
+        row += 1
+        self._blank_dialog_line(row)
+        players = self.players
+        player_count = len(players)
+        player_pos = self.player_pos
+        for n in range(player_pos-1, player_pos+2):
+            if n < 0 or n >= player_count:
+                player = " "
+            else:
+                player = players[n]
+            row += 1
+            self._blank_dialog_line(row)
+            pos = (tw - len(player)) // 2
+            terminal.cursorPosition(pos, row)
+            if n == player_pos:
+                player = assembleFormattedText(A.reverseVideo[player])
+            terminal.saveCursor()
+            terminal.write(player)
+            terminal.restoreCursor()
+        row += 1
+        self._blank_dialog_line(row)
+        row += 1
+        pos = dialog_x
+        terminal.cursorPosition(pos, row)
+        terminal.write(gchars.DBORDER_DOWN_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (tw - 6))
+        terminal.write(gchars.DBORDER_DOWN_RIGHT)
+        
+    def _blank_dialog_line(self, row):
+        parent = self.parent
+        terminal = self.parent.terminal
+        tw, th = self.parent.term_size
+        dialog_x = 2
+        dialog_w = tw - 4
+        terminal.cursorPosition(dialog_x, row)
+        terminal.write(gchars.DBORDER_VERTICAL)
+        terminal.write(" " * (dialog_w - dialog_x))
+        terminal.write(gchars.DBORDER_VERTICAL)
+
+    def handle_input(self, key_id, modifiers):
+        dialog_commands = {
+            '[UP_ARROW]': self._cycle_players_up,
+            '[DOWN_ARROW]': self._cycle_players_down,
+            'i': self._send_invite_to_player,
+            'q': self._cancel_dialog,
+        }
+        func = dialog_commands.get(key_id, None)
+        if func is not None:
+            func()
+
+    def _cycle_players_up(self):
+        players = self.players
+        pos = self.player_pos
+        pos -= 1
+        if pos < 0:
+            return
+        else:
+            self.player_pos = pos
+
+    def _cycle_players_down(self):
+        players = self.players
+        pos = self.player_pos
+        pos += 1
+        if pos >= len(players):
+            return
+        else:
+            self.player_pos = pos
+        
+    def _send_invite_to_player(self):
+        parent = self.parent
+        user_id = self.parent.user_id
+        my_entry = users.get_user_entry(user_id)
+        player = self.players[self.player_pos]
+        other_entry = users.get_user_entry(player)
+        if other_entry.invited_id is not None:
+            parent.output = "'{}' has already been invited to a session.".format(player)
+            self._cancel_dialog()
+            return
+        if other_entry.joined_id is not None:
+            parent.output = "'{}' has already joined a session.".format(player)
+            self._cancel_dialog()
+            return
+        other_entry.invited_id = my_entry.joined_id
+        other_entry.app_protocol.lobby.receive_invitation()
+        parent.output = "Sent invite to '{}'.".format(player)
+        my_entry.app_protocol.lobby.send_invitation()
+        self.parent.dialog = None
+        self.parent = None
+
+    def _cancel_dialog(self):
+        parent = self.parent
+        self.parent.dialog = None
+        self.parent = None
+        parent.update_display()
+
+
+def draw_dialog_frame(dialog):
+    """
+    Draw a dialog frame.
+    """
+    terminal = dialog.terminal
+    dlg_left = dialog.left
+    dlg_top = dialog.top
+    dlg_w = dialog.width
+    dlg_h = dialog.height
+    pos = dlg_left
+    row = dlg_top
+    terminal.cursorPosition(pos, row)
+    terminal.write(gchars.DBORDER_UP_LEFT)
+    terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
+    terminal.write(gchars.DBORDER_UP_RIGHT)
+    for n in range(dlg_h - 2):
+        row += 1
+        terminal.cursorPosition(pos, row)
+        terminal.write(gchars.DBORDER_VERTICAL)
+        terminal.write(" " * (dlg_w - 2))
+        terminal.write(gchars.DBORDER_VERTICAL)
+    row += 1
+    terminal.cursorPosition(pos, row)
+    terminal.write(gchars.DBORDER_DOWN_LEFT)
+    terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
+    terminal.write(gchars.DBORDER_DOWN_RIGHT)
 

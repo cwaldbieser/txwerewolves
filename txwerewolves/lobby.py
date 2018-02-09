@@ -18,6 +18,9 @@ from twisted.conch.insults.text import (
 from twisted.internet import defer
 from twisted.python import log
 from txwerewolves.apps import TerminalApplication
+from txwerewolves.dialogs import (
+   ChoosePlayerDialog, 
+)
 from txwerewolves.game import SSHGameProtocol
 from txwerewolves import graphics_chars as gchars
 
@@ -187,7 +190,7 @@ class LobbyMachine(object):
 class SSHLobbyProtocol(TerminalApplication):
     lobby = None
     instructions = ""
-    valid_commands = None
+    commands = None
     status = ""
     output = ""
 
@@ -203,7 +206,7 @@ class SSHLobbyProtocol(TerminalApplication):
         lobby.terminal = terminal
         lobby.user_id = user_id
         lobby.parent = weakref.ref(parent)
-        lobby.valid_commands = {}
+        lobby.commands = {}
         lobby_machine.handle_unjoined = lobby.handle_unjoined
         lobby_machine.handle_invited = lobby.handle_invited
         lobby_machine.handle_accepted = lobby.handle_accepted
@@ -212,6 +215,19 @@ class SSHLobbyProtocol(TerminalApplication):
         lobby_machine.handle_invited = lobby.handle_invited
         lobby_machine.initialize()
         return lobby
+
+    def handle_input(self, key_id, modifiers):
+        """
+        Parse user input and act on commands.
+        """
+        if self.dialog is not None:
+            self.dialog.handle_input(key_id, modifiers)
+        else:
+            func = self.commands.get(key_id)
+            if func is None:
+                return
+            func()
+        self.update_display()
 
     def update_display(self):
         """
@@ -354,7 +370,7 @@ class SSHLobbyProtocol(TerminalApplication):
         dialog = self.dialog
         if self.dialog is None:
             return        
-        dialog.show_dialog()
+        dialog.draw()
 
     def handle_unjoined(self):
         self.status = "You are not part of any session."
@@ -363,7 +379,7 @@ class SSHLobbyProtocol(TerminalApplication):
         * (i)nvite players            - Invite players to join a session.
         * (l)ist                      - List players in the lobby.
         """)
-        self.valid_commands = {
+        self.commands = {
             'l': self._list_players,
             'i': self._invite,
         }
@@ -381,7 +397,7 @@ class SSHLobbyProtocol(TerminalApplication):
         * (j)oined                    - Show players that have joined the session.
         * (c)ancel                    - Cancel the session.
         """)
-        self.valid_commands = {
+        self.commands = {
             's': self._start_session,
             'i': self._invite,
             'j': self._show_joined,
@@ -408,7 +424,7 @@ class SSHLobbyProtocol(TerminalApplication):
         * (a)ccept                    - Accept invitation to join session.
         * (r)eject                    - Reject invitation to join session.
         """)
-        self.valid_commands = {
+        self.commands = {
             'a': self._accept_invitation,
             'r': self._reject_invitation,
         }
@@ -422,7 +438,7 @@ class SSHLobbyProtocol(TerminalApplication):
         * (j)oined                    - List players that have joined the session.
         * (c)ancel                    - Leave the session.
         """)
-        self.valid_commands = {
+        self.commands = {
             'j': self._show_joined,
             'c': self._leave_session,
         }
@@ -527,19 +543,6 @@ class SSHLobbyProtocol(TerminalApplication):
             entry.invited_id = None
             entry.app_protocol.lobby.cancel()
 
-    def handle_input(self, key_id, modifiers):
-        """
-        Parse user input and act on commands.
-        """
-        if self.dialog is not None:
-            self.dialog.handle_input(key_id, modifiers)
-        else:
-            func = self.valid_commands.get(key_id)
-            if func is None:
-                return
-            func()
-        self.update_display()
-
     def signal_shutdown(self):
         """
         Allow the app to shutdown gracefully.
@@ -547,156 +550,5 @@ class SSHLobbyProtocol(TerminalApplication):
         pass
 
 
-class AbstractDialog(object):
-    """
-    A dialog base class.
-    """
-    parent = None
-    
-    def show_dialog(self):
-        raise NotImplementedError()
-
-    def handle_input(self, key_id, modifiers):
-        raise NotImplementedError()
-
-class ChoosePlayerDialog(AbstractDialog):
-    """
-    A dialog for choosing a player.
-    """
-    title = " Choose Player ... "
-    start_row = 16
-    players = None
-    player_pos = 0
-
-    def show_dialog(self):
-        parent = self.parent
-        title = self.title
-        terminal = self.parent.terminal
-        tw, th = self.parent.term_size
-        row = self.start_row
-        dialog_x = 2
-        dialog_w = tw - 4
-        pos = dialog_x
-        terminal.cursorPosition(pos, row)
-        terminal.write(gchars.DBORDER_UP_LEFT)
-        terminal.write(gchars.DBORDER_HORIZONTAL * (tw - 6))
-        terminal.write(gchars.DBORDER_UP_RIGHT)
-        pos = (tw - len(title)) // 2
-        terminal.cursorPosition(pos, row)
-        terminal.write(title)
-        msg = textwrap.dedent(u"""\
-            {} - Scroll up       {}   - Scroll down
-            i - invite player   q - cancel 
-            """).format(gchars.UP_ARROW, gchars.DOWN_ARROW).encode('utf-8')
-        textlines = msg.split("\n")
-        termlines = []
-        for textline in textlines:
-            lines = textwrap.wrap(textline, width=(tw - 4), replace_whitespace=False) 
-            termlines.extend(lines)
-        maxw = max(len(line) for line in termlines)
-        row += 1
-        self._blank_dialog_line(row)
-        row += 1
-        pos = (tw - maxw) // 2
-        for line in termlines:
-            self._blank_dialog_line(row)
-            terminal.cursorPosition(pos, row)
-            terminal.write(line)
-            row += 1
-        self._blank_dialog_line(row)
-        row += 1
-        self._blank_dialog_line(row)
-        players = self.players
-        player_count = len(players)
-        player_pos = self.player_pos
-        for n in range(player_pos-1, player_pos+2):
-            if n < 0 or n >= player_count:
-                player = " "
-            else:
-                player = players[n]
-            row += 1
-            self._blank_dialog_line(row)
-            pos = (tw - len(player)) // 2
-            terminal.cursorPosition(pos, row)
-            if n == player_pos:
-                player = assembleFormattedText(A.reverseVideo[player])
-            terminal.saveCursor()
-            terminal.write(player)
-            terminal.restoreCursor()
-        row += 1
-        self._blank_dialog_line(row)
-        row += 1
-        pos = dialog_x
-        terminal.cursorPosition(pos, row)
-        terminal.write(gchars.DBORDER_DOWN_LEFT)
-        terminal.write(gchars.DBORDER_HORIZONTAL * (tw - 6))
-        terminal.write(gchars.DBORDER_DOWN_RIGHT)
-        
-    def _blank_dialog_line(self, row):
-        parent = self.parent
-        terminal = self.parent.terminal
-        tw, th = self.parent.term_size
-        dialog_x = 2
-        dialog_w = tw - 4
-        terminal.cursorPosition(dialog_x, row)
-        terminal.write(gchars.DBORDER_VERTICAL)
-        terminal.write(" " * (dialog_w - dialog_x))
-        terminal.write(gchars.DBORDER_VERTICAL)
-
-    def handle_input(self, key_id, modifiers):
-        dialog_commands = {
-            '[UP_ARROW]': self._cycle_players_up,
-            '[DOWN_ARROW]': self._cycle_players_down,
-            'i': self._send_invite_to_player,
-            'q': self._cancel_dialog,
-        }
-        func = dialog_commands.get(key_id, None)
-        if func is not None:
-            func()
-
-    def _cycle_players_up(self):
-        players = self.players
-        pos = self.player_pos
-        pos -= 1
-        if pos < 0:
-            return
-        else:
-            self.player_pos = pos
-
-    def _cycle_players_down(self):
-        players = self.players
-        pos = self.player_pos
-        pos += 1
-        if pos >= len(players):
-            return
-        else:
-            self.player_pos = pos
-        
-    def _send_invite_to_player(self):
-        parent = self.parent
-        user_id = self.parent.user_id
-        my_entry = users.get_user_entry(user_id)
-        player = self.players[self.player_pos]
-        other_entry = users.get_user_entry(player)
-        if other_entry.invited_id is not None:
-            parent.output = "'{}' has already been invited to a session.".format(player)
-            self._cancel_dialog()
-            return
-        if other_entry.joined_id is not None:
-            parent.output = "'{}' has already joined a session.".format(player)
-            self._cancel_dialog()
-            return
-        other_entry.invited_id = my_entry.joined_id
-        other_entry.app_protocol.lobby.receive_invitation()
-        parent.output = "Sent invite to '{}'.".format(player)
-        my_entry.app_protocol.lobby.send_invitation()
-        self.parent.dialog = None
-        self.parent = None
-
-    def _cancel_dialog(self):
-        parent = self.parent
-        self.parent.dialog = None
-        self.parent = None
-        parent.update_display()
 
 
