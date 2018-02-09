@@ -28,11 +28,12 @@ class TerminalAdapterProtocol(TerminalProtocol):
     CTRL_D = '\x04'
     CTRL_X = '\x18'
     reactor = None
+    term_size = (80, 24)
     user_id = None
 
     def connectionMade(self):
         TerminalProtocol.connectionMade(self)
-        self._init_app_protocol()
+        self.init_app_protocol()
 
     def keystrokeReceived(self, key_id, modifier):
         try:
@@ -47,7 +48,7 @@ class TerminalAdapterProtocol(TerminalProtocol):
         elif key_id == 'R':
             self.app_protocol.update_display()
         elif key_id == self.CTRL_X:
-            self._reset_app_protocol()
+            self.reset_app_protocol()
         else:
             self.app_protocol.handle_input(key_id, modifier)
 
@@ -57,7 +58,7 @@ class TerminalAdapterProtocol(TerminalProtocol):
     def unhandledControlSequence(self, seq):
         log.msg("unhandled control seq.")
 
-    def _init_app_protocol(self):
+    def init_app_protocol(self):
         """
         Initialize an application protocol if one does not exist.
         The application protocol will be term-based, and it is the
@@ -79,21 +80,27 @@ class TerminalAdapterProtocol(TerminalProtocol):
         app_protocol = entry.app_protocol
         app_protocol.reactor = self.reactor
         app_protocol.terminal = self.terminal
+        app_protocol.term_size = self.term_size
         self.app_protocol = app_protocol
         app_protocol.parent = weakref.ref(self)
-        self.terminal.reset()
-        app_protocol.update_display()
 
-    def _reset_app_protocol(self):
+        def _request_refresh(terminal, app_protocol):
+            terminal.reset()
+            app_protocol.update_display()
+
+        self.reactor.callLater(0, _request_refresh, self.terminal, app_protocol)
+
+    def reset_app_protocol(self, **kwds):
         """
         Reset the application to a lobby.
+        Arguments in `kwds` are passed to the application's `signal_shutdown()` handler.
         """
         user_id = self.user_id
         entry = users.get_user_entry(user_id)
         app_protocol = entry.app_protocol
-        app_protocol.signal_shutdown()
+        app_protocol.signal_shutdown(**kwds)
         entry.app_protocol = None
-        self._init_app_protocol()
+        self.init_app_protocol()
 
     def connectionLost(self, reason):
         pass

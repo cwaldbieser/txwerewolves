@@ -21,6 +21,7 @@ from txwerewolves.dialogs import (
     ChatDialog,
     HelpDialog,
     SessionAdminDialog,
+    SystemMessageDialog,
 )
 from txwerewolves import graphics_chars as gchars
 from txwerewolves import (
@@ -222,15 +223,14 @@ class SSHGameProtocol(TerminalApplication):
     new_chat_flag = False
     player_cards = None
     _ready_to_advance = False
+    _shutting_down = False
 
     @classmethod
     def make_protocol(klass, **kwds):
         instance = klass()
-        log.msg("Created game adapter instance.")
         for k, v in kwds.items():
             if hasattr(instance, k):
                 setattr(instance, k, v)
-                log.msg("Set attrib {}: '{}'".format(k, v))
         instance.commands = {}
         entry = users.get_user_entry(instance.user_id)
         session_entry = session.get_entry(entry.joined_id)
@@ -253,9 +253,7 @@ class SSHGameProtocol(TerminalApplication):
             ]))
             instance.reactor.callLater(
                 0, game.deal_cards, werewolf_count, other_roles)
-            log.msg("Created new game instance.")
         instance.game = session_entry.appstate
-        log.msg("Attached game to adapter.")
         instance.input_buf = []
         return instance
 
@@ -268,26 +266,21 @@ class SSHGameProtocol(TerminalApplication):
         ORD_CTRL_A = 1
         dialog = self.dialog
         if not handled and not dialog is None:
-            log.msg("Game handled dialog.")
             handled = dialog.handle_input(key_id, modifier)
         if not handled and key_id == 'h':
             self._show_help()
             handled = True
         if not handled and ord(key_id) == ORD_TAB:
-            log.msg("Game handled TAB.")
             self._show_chat()
             handled = True
         if not handled and ord(key_id) == ORD_CTRL_A:
-            log.msg("Game handled CTRL-A.")
             self._show_session_admin()
             handled = True
         if not handled and not self.commands is None:
-            log.msg("Game attempting to handle input.")
             func = self.commands.get(key_id)
             if func is None:
                 func = self.commands.get('*', None)
             if not func is None:
-                log.msg("Game handled input.")
                 func()
         self.update_display() 
 
@@ -1156,8 +1149,6 @@ class SSHGameProtocol(TerminalApplication):
     def _show_chat(self):
         dialog = ChatDialog()
         input_buf = self.input_buf
-        log.msg("input_buf assigned.")
-        log.msg("buf is None: {}".format((input_buf is None)))
         dialog.input_buf = input_buf
         game = self.game
         session_entry = session.get_entry(game.session_id)
@@ -1184,9 +1175,40 @@ class SSHGameProtocol(TerminalApplication):
         dialog.parent = weakref.ref(self)
         self.dialog = dialog
 
-    def signal_shutdown(self):
+    def signal_shutdown(self, signal=True, **kwds):
         """
         Allow the app to shutdown gracefully.
         """
-        log.msg("signal_shutdown() called ...")
+        user_id = self.user_id
+        user_entry = users.get_user_entry(user_id)
+        user_entry.joined_id = None
+        user_entry.invited_id = None
+        session_id = self.game.session_id
+        session_entry = session.get_entry(session_id)
+        members = session_entry.members
+        members.discard(user_id)
+        if not signal:
+            return
+        if self._shutting_down:
+            return
+        self._shutting_down = True
+        msg = "{} has left the game.".format(user_id)
+        for member in members:
+            user_entry = users.get_user_entry(member)
+            app_protocol = user_entry.app_protocol
+
+            def _make_handler(app_protocol):
+
+                def _handler():
+                    app_protocol.parent().reset_app_protocol(signal=False)
+
+                return _handler
+
+            dialog = SystemMessageDialog.make_dialog(
+                app_protocol,
+                msg,
+                on_close=_make_handler(app_protocol))
+            app_protocol._install_dialog(dialog)
+            app_protocol.update_display()
+
 

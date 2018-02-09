@@ -17,7 +17,7 @@ class TerminalApplication(object):
         """
         raise NotImplementedError()
 
-    def signal_shutdown(self):
+    def signal_shutdown(self, **kwds):
         """
         Allow the app to shutdown gracefully.
         """

@@ -2,6 +2,7 @@
 from __future__ import division
 import string
 import textwrap
+import weakref
 from txwerewolves import (
     session,
     users,
@@ -655,3 +656,106 @@ class BriefMessageDialog(TermDialog):
         if key_id == 'q' or ord(key_id) == 27:
             self.uninstall_dialog()
         return True
+
+
+class SystemMessageDialog(TermDialog):
+    on_close = None
+    left = None
+    message = None
+    msg_duration = -1
+    parent = None
+    top = None
+    _lines = None
+
+    @classmethod
+    def make_dialog(klass, parent, message, duration=-1, on_close=None):
+        instance = klass()
+        instance.parent = weakref.ref(parent)
+        instance.message = message
+        instance.msg_duration = duration
+        instance.on_close = on_close
+        return instance
+    
+    def draw(self):
+        self._compute_coords()
+        self._draw_box()
+        self._draw_msg()
+        self._schedule_close_dlg()
+
+    def _schedule_close_dlg(self):
+        if self.msg_duration >= 0:
+            self.parent().reactor.callLater(self.msg_duration, self.uninstall_dialog)
+
+    def _compute_coords(self):
+        tw, th = self.term_size
+        self.width = int(tw * 0.5)
+        msg = self.message
+        lines = wrap_paras(msg, self.width - 4)
+        self._lines = lines
+        self.height = min(int(th * 0.6), max(len(lines) + 2, 5))
+        self.top = (th - self.height) // 2
+        self.left = (tw - self.width) // 2
+
+    def _draw_box(self):
+        terminal = self.terminal
+        dlg_left = self.left
+        dlg_top = self.top
+        dlg_w = self.width
+        dlg_h = self.height
+        pos = dlg_left
+        row = dlg_top
+        terminal.cursorPosition(pos, row)
+        terminal.write(gchars.DBORDER_UP_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
+        terminal.write(gchars.DBORDER_UP_RIGHT)
+        for n in range(dlg_h - 2):
+            row += 1
+            terminal.cursorPosition(pos, row)
+            terminal.write(gchars.DBORDER_VERTICAL)
+            terminal.write(" " * (dlg_w - 2))
+            terminal.write(gchars.DBORDER_VERTICAL)
+        row += 1
+        terminal.cursorPosition(pos, row)
+        terminal.write(gchars.DBORDER_DOWN_LEFT)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (dlg_w - 2))
+        terminal.write(gchars.DBORDER_DOWN_RIGHT)
+
+    def _draw_msg(self):
+        terminal = self.terminal
+        dlg_left = self.left
+        dlg_top = self.top
+        dlg_w = self.width
+        dlg_h = self.height
+        row = dlg_top + 1
+        if len(self._lines) < dlg_h:
+            row = (dlg_h - len(self._lines)) // 2 + dlg_top
+        lines = self._lines
+        msg_len = max(len(line) for line in lines)
+        pos = dlg_left + (dlg_w - msg_len) // 2
+        for line in lines:
+            terminal.cursorPosition(pos, row)
+            terminal.write(line)
+            row += 1
+
+    def _quit(self):
+        self.uninstall_dialog()
+        on_close = self.on_close
+        if on_close is not None:
+            on_close()
+
+    def handle_input(self, key_id, modifier):
+        """
+        Handle input and return True
+        OR
+        return False for previous handler
+        """
+        try:
+            key_ord = ord(key_id)
+            log.msg("key_ord: {}, mod: {}".format(key_ord, modifier))
+        except TypeError as ex:
+            key_ord = None
+        log.msg("key_id: {}".format(key_id))
+        if key_id == 'q' or key_id == '\r' or ord(key_id) == 27:
+            self._quit()
+        return True
+

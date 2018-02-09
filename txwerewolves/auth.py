@@ -44,7 +44,7 @@ class SSHAvatar(ConchUser):
         self.avatar_id = uuid.uuid4().hex
         self.channelLookup.update({'session': SSHSession})
         self.terminal = None
-        self.term_size = (20, 80)
+        self.term_size = (80, 24)
         self.ssh_protocol = None
 
     def openShell(self, protocol):
@@ -53,9 +53,14 @@ class SSHAvatar(ConchUser):
         serverProto.makeConnection(protocol)
         protocol.makeConnection(wrapProtocol(serverProto))
         self.ssh_protocol = serverProto
+        self.set_term_adapter_term_size()
         app_protocol = serverProto.terminalProtocol.app_protocol
         app_protocol.term_size = self.term_size
         app_protocol.update_display()
+
+    def set_term_adapter_term_size(self):
+        term_protocol = self.ssh_protocol.terminalProtocol
+        term_protocol.term_size = self.term_size 
 
     def getPty(self, terminal, windowSize, attrs):
         h, w, x, y = windowSize
@@ -69,7 +74,9 @@ class SSHAvatar(ConchUser):
     def  windowChanged(self, newWindowSize):
         h, w, x, y = newWindowSize
         self.term_size = (w, h)
-        app_protocol = self.ssh_protocol.terminalProtocol.app_protocol
+        term_protocol = self.ssh_protocol.terminalProtocol
+        term_protocol.term_size = self.term_size
+        app_protocol = term_protocol.app_protocol
         app_protocol.term_size = self.term_size
         app_protocol.update_display()
 

@@ -291,7 +291,6 @@ class SSHLobbyProtocol(TerminalApplication):
         terminal = self.terminal
         tw, th = self.term_size
         instructions = self.instructions
-        log.msg("instructions: '{}'".format(instructions))
         text_lines = instructions.split("\n")
         instructions = []
         for text_line in text_lines:
