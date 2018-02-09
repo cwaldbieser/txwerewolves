@@ -8,6 +8,7 @@ import weakref
 from txwerewolves import (
     session,
     users,
+    utils,
 )
 import textwrap
 from automat import MethodicalMachine
@@ -278,7 +279,8 @@ class SSHLobbyProtocol(TerminalApplication):
         terminal.cursorPosition(pos, 0)
         terminal.saveCursor()
         #reverseVideo, underline, bold
-        player_text = assembleFormattedText(A.bold[A.fg.blue[player]])
+        title = " {} ".format(player)
+        player_text = assembleFormattedText(A.bold[A.fg.blue[title]])
         terminal.write(player_text)
         terminal.restoreCursor()
 
@@ -288,7 +290,7 @@ class SSHLobbyProtocol(TerminalApplication):
         """
         terminal = self.terminal
         tw, th = self.term_size
-        terminal.cursorPosition(0, 2)
+        terminal.cursorPosition(0, 4)
         terminal.write(gchars.DVERT_T_LEFT)
         terminal.write(gchars.HORIZONTAL * (tw - 2))
         terminal.write(gchars.DVERT_T_RIGHT)
@@ -297,7 +299,7 @@ class SSHLobbyProtocol(TerminalApplication):
         if status_size >= (tw - 2):
             status = status[:status_size - 2]
         pos = (tw - status_size) // 2
-        terminal.cursorPosition(pos, 1)
+        terminal.cursorPosition(pos, 2)
         terminal.write(status)
 
     def _update_instructions(self):
@@ -310,15 +312,15 @@ class SSHLobbyProtocol(TerminalApplication):
         text_lines = instructions.split("\n")
         instructions = []
         for text_line in text_lines:
-            lines = textwrap.wrap(text_line, width=(tw - 4), replace_whitespace=False) 
+            lines = utils.wrap_paras(text_line, width=(tw - 4)) 
             instructions.extend(lines)
-        row = 4
+        row = 6
         maxrow = 14
         maxwidth = max(len(line) for line in instructions)
-        pos = (tw - (maxwidth + 2)) // 2
+        pos = (tw - (maxwidth + 4)) // 2
         terminal.cursorPosition(pos, row)
         terminal.write(gchars.DHBORDER_UP_LEFT)
-        terminal.write(gchars.DBORDER_HORIZONTAL * maxwidth)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (maxwidth + 2))
         terminal.write(gchars.DHBORDER_UP_RIGHT)
         title = "Instructions"
         terminal.cursorPosition((tw - len(title)) // 2, row)
@@ -329,13 +331,15 @@ class SSHLobbyProtocol(TerminalApplication):
                 break
             terminal.cursorPosition(pos, row)
             terminal.write(gchars.VERTICAL)
+            terminal.write(" ")
             terminal.write(line)
-            terminal.cursorPosition(pos + maxwidth + 1, row)
+            terminal.write(" ")
+            terminal.cursorPosition(pos + maxwidth + 3, row)
             terminal.write(gchars.VERTICAL)
             row += 1
         terminal.cursorPosition(pos, row)
         terminal.write(gchars.DHBORDER_DOWN_LEFT)
-        terminal.write(gchars.DBORDER_HORIZONTAL * maxwidth)
+        terminal.write(gchars.DBORDER_HORIZONTAL * (maxwidth + 2))
         terminal.write(gchars.DHBORDER_DOWN_RIGHT)
 
     def _show_output(self):
