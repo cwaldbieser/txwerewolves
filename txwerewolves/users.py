@@ -1,6 +1,6 @@
 
 import attr
-
+import six
 
 _user_registry = {}
 
@@ -20,6 +20,20 @@ def get_user_ids():
     users = _user_registry.keys()
     users.sort()
     return users
+
+def generate_user_entries(fltr=None):
+    """
+    Iterate over user entries.
+    If `fltr` is provided, it should be a funtion that takes an entry
+    as its ownly argument.  It should return True to accept the entry
+    or False to reject it.  
+    """
+    global _user_registry
+    if fltr is None:
+        fltr = lambda x: True
+    for entry in six.itervalues(_user_registry):
+        if fltr(entry):
+            yield entry
 
 def register_user(user_id):
     """

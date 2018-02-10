@@ -35,11 +35,11 @@ class TermDialog(object):
         """
         raise NotImplementedError()
 
-    def uninstall_dialog(self):
-        self.parent().dialog = None
-
     def set_cursor_pos(self):
         return False
+
+    def uninstall_dialog(self):
+        self.parent().dialog = None
 
     @property
     def terminal(self):
@@ -618,7 +618,6 @@ class SystemMessageDialog(TermDialog):
     @classmethod
     def make_dialog(klass, parent, message, duration=-1, on_close=None):
         instance = klass()
-        instance.parent = weakref.ref(parent)
         instance.message = message
         instance.msg_duration = duration
         instance.on_close = on_close
@@ -689,16 +688,22 @@ class ChoosePlayerDialog(TermDialog):
     A dialog for choosing a player.
     """
     title = " Choose Player ... "
-    start_row = 16
+    top = 16
     players = None
     player_pos = 0
 
+    @classmethod
+    def make_dialog(klass, players):
+        instance = klass()
+        instance.players = players
+        return instance
+
     def draw(self):
-        parent = self.parent
+        parent = self.parent()
         title = self.title
-        terminal = self.parent.terminal
-        tw, th = self.parent.term_size
-        row = self.start_row
+        terminal = parent.terminal
+        tw, th = parent.term_size
+        row = self.top
         dialog_x = 2
         dialog_w = tw - 4
         pos = dialog_x
@@ -758,9 +763,9 @@ class ChoosePlayerDialog(TermDialog):
         terminal.write(gchars.DBORDER_DOWN_RIGHT)
         
     def _blank_dialog_line(self, row):
-        parent = self.parent
-        terminal = self.parent.terminal
-        tw, th = self.parent.term_size
+        parent = self.parent()
+        terminal = parent.terminal
+        tw, th = parent.term_size
         dialog_x = 2
         dialog_w = tw - 4
         terminal.cursorPosition(dialog_x, row)
@@ -773,7 +778,7 @@ class ChoosePlayerDialog(TermDialog):
             '[UP_ARROW]': self._cycle_players_up,
             '[DOWN_ARROW]': self._cycle_players_down,
             'i': self._send_invite_to_player,
-            'q': self._cancel_dialog,
+            'q': self.uninstall_dialog,
         }
         func = dialog_commands.get(key_id, None)
         if func is not None:
@@ -798,31 +803,25 @@ class ChoosePlayerDialog(TermDialog):
             self.player_pos = pos
         
     def _send_invite_to_player(self):
-        parent = self.parent
-        user_id = self.parent.user_id
+        parent = self.parent()
+        user_id = parent.user_id
         my_entry = users.get_user_entry(user_id)
         player = self.players[self.player_pos]
         other_entry = users.get_user_entry(player)
         if other_entry.invited_id is not None:
             parent.output = "'{}' has already been invited to a session.".format(player)
-            self._cancel_dialog()
+            self.uninstall_dialog()
             return
         if other_entry.joined_id is not None:
             parent.output = "'{}' has already joined a session.".format(player)
-            self._cancel_dialog()
+            self.uninstall_dialog()
             return
         other_entry.invited_id = my_entry.joined_id
         other_entry.app_protocol.lobby.receive_invitation()
         parent.output = "Sent invite to '{}'.".format(player)
         my_entry.app_protocol.lobby.send_invitation()
-        self.parent.dialog = None
-        self.parent = None
-
-    def _cancel_dialog(self):
-        parent = self.parent
-        self.parent.dialog = None
-        self.parent = None
-        parent.update_display()
+        parent.dialog = None
+        self.uninstall_dialog()
 
 
 def draw_dialog_frame(dialog):

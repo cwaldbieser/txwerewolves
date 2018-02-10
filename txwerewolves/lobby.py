@@ -410,7 +410,6 @@ class SSHLobbyProtocol(TerminalApplication):
         self.update_display()
     
     def handle_session_started(self):
-        #proto = TodoProtocol()
         proto = SSHGameProtocol.make_protocol(
             user_id=self.user_id,
             terminal=self.terminal,
@@ -452,7 +451,8 @@ class SSHLobbyProtocol(TerminalApplication):
         """
         List players.
         """
-        user_ids = users.get_user_ids()
+        fltr = lambda e: (e.invited_id is None) and (e.joined_id is None)
+        user_ids = [e.user_id for e in users.generate_user_entries(fltr=fltr)]
         self.output = "Available Players:\n{}".format('\n'.join(user_ids))
         self.update_display()
 
@@ -462,7 +462,8 @@ class SSHLobbyProtocol(TerminalApplication):
         """
         this_player = self.user_id
         my_entry = users.get_user_entry(this_player)
-        players = set(users.get_user_ids())
+        fltr = lambda e: (e.invited_id is None) and (e.joined_id is None)
+        players = set([e.user_id for e in users.generate_user_entries(fltr=fltr)])
         players.discard(this_player)
         if len(players) == 0:
             self.output = "No other players to invite at this time."
@@ -477,10 +478,8 @@ class SSHLobbyProtocol(TerminalApplication):
             session_entry.owner = this_player
             session_entry.members.add(this_player)
             self.lobby.create_session()
-        dialog = ChoosePlayerDialog()
-        self.dialog = dialog
-        self.dialog.parent = self
-        self.dialog.players = players
+        dialog = ChoosePlayerDialog.make_dialog(players)
+        self.install_dialog(dialog)
 
     def _show_joined(self):
         """
