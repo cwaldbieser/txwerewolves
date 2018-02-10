@@ -193,7 +193,7 @@ class SSHLobbyProtocol(TerminalApplication):
     instructions = ""
     commands = None
     status = ""
-    output = ""
+    output = None
 
     @classmethod
     def make_instance(klass, reactor, terminal, user_id, parent):
@@ -208,6 +208,7 @@ class SSHLobbyProtocol(TerminalApplication):
         lobby.user_id = user_id
         lobby.parent = weakref.ref(parent)
         lobby.commands = {}
+        lobby.output = []
         lobby_machine.handle_unjoined = lobby.handle_unjoined
         lobby_machine.handle_invited = lobby.handle_invited
         lobby_machine.handle_accepted = lobby.handle_accepted
@@ -348,24 +349,28 @@ class SSHLobbyProtocol(TerminalApplication):
         """
         terminal = self.terminal
         tw, th = self.term_size
+        output_w = tw - 6
+        gutter_pos = 2
+        pos = 4
         output = self.output
         row = 15
+        max_row = th - 2
         terminal.cursorPosition(0, row)
         terminal.write(gchars.DVERT_T_LEFT)
         terminal.write(gchars.HORIZONTAL_DASHED * (tw - 2))
         terminal.write(gchars.DVERT_T_RIGHT)
-        if output is None:
-            return
-        textlines = output.split("\n")
-        termlines = []
-        for textline in textlines:
-            lines = textwrap.wrap(textline, width=(tw - 4), replace_whitespace=False) 
-            termlines.extend(lines)
         row += 1
-        for line in termlines:
-            terminal.cursorPosition(2, row)
-            terminal.write(line)
-            row += 1
+        for event in reversed(output):
+            lines = utils.wrap_paras(event, output_w)
+            terminal.cursorPosition(gutter_pos, row)
+            terminal.write("-")
+            for line in lines:
+                terminal.cursorPosition(pos, row)
+                if row >= max_row:
+                    terminal.write("...")
+                    break
+                terminal.write(line)
+                row += 1
 
     def _show_dialog(self):
         """
@@ -453,7 +458,7 @@ class SSHLobbyProtocol(TerminalApplication):
         """
         fltr = lambda e: (e.invited_id is None) and (e.joined_id is None)
         user_ids = [e.user_id for e in users.generate_user_entries(fltr=fltr)]
-        self.output = "Available Players:\n{}".format('\n'.join(user_ids))
+        self.output.append("Available Players:\n{}".format('\n'.join(user_ids)))
         self.update_display()
 
     def _invite(self):
@@ -466,7 +471,7 @@ class SSHLobbyProtocol(TerminalApplication):
         players = set([e.user_id for e in users.generate_user_entries(fltr=fltr)])
         players.discard(this_player)
         if len(players) == 0:
-            self.output = "No other players to invite at this time."
+            self.output.append("No other players to invite at this time.")
             self.update_display()
             return
         players = list(players)
@@ -492,9 +497,10 @@ class SSHLobbyProtocol(TerminalApplication):
         members = list(session_entry.members)
         members.sort()
         lines = []
+        lines.append("The following players have joined the session:")
         for n, player in enumerate(members): 
             lines.append("{}) {}".format(n + 1, player))
-        self.output = '\n'.join(lines)
+        self.output.append('\n'.join(lines))
         self.update_display()
 
     def _accept_invitation(self):
@@ -506,13 +512,27 @@ class SSHLobbyProtocol(TerminalApplication):
         my_entry.invited_id = None
         session_entry.members.add(user_id)
         self.lobby.accept()
+        members = set(session_entry.members)
+        members.discard(user_id)
+        msg = "{} joined session {}.".format(user_id, session_id)
+        for player in members:
+            user_entry = users.get_user_entry(player)
+            app_protocol = user_entry.app_protocol
+            app_protocol.output.append(msg)    
+            app_protocol.update_display()
 
     def _reject_invitation(self):
         user_id = self.user_id
         my_entry = users.get_user_entry(user_id)
+        session_id = my_entry.invited_id
         my_entry.invited_id = None
         self.lobby.reject()
-        
+        session_entry = session.get_entry(session_id)
+        owner = session_entry.owner
+        owner_entry = users.get_user_entry(owner)
+        owner_lobby = owner_entry.app_protocol
+        owner_lobby.output.append("{} rejected your invitation.".format(user_id))
+        owner_lobby.update_display() 
 
     def _leave_session(self):
         user_id = self.user_id
@@ -522,6 +542,14 @@ class SSHLobbyProtocol(TerminalApplication):
         session_entry = session.get_entry(session_id)
         session_entry.members.discard(user_id)
         self.lobby.cancel()
+        members = set(session_entry.members)
+        members.discard(user_id)
+        msg = "{} left session {}.".format(user_id, session_id)
+        for player in members:
+            user_entry = users.get_user_entry(player)
+            app_protocol = user_entry.app_protocol
+            app_protocol.output.append(msg)    
+            app_protocol.update_display()
 
     def _start_session(self):
         user_id = self.user_id
