@@ -523,9 +523,11 @@ class SSHLobbyProtocol(TerminalApplication):
         my_entry.invited_id = None
         session_entry.members.add(user_id)
         self.lobby.accept()
-        owner_entry.app_protocol.pending_invitations.discard(user_id)
+        pending_invitations = owner_entry.app_protocol.pending_invitations
+        pending_invitations.discard(user_id)
         members = set(session_entry.members)
         members.discard(user_id)
+        members = members.union(pending_invitations)
         msg = "{} joined session {}.".format(user_id, session_id)
         for player in members:
             user_entry = users.get_user_entry(player)
