@@ -4,6 +4,7 @@ from __future__ import (
     division,
     print_function,
 )
+import collections
 import weakref
 from txwerewolves import (
     session,
@@ -216,7 +217,7 @@ class SSHLobbyProtocol(TerminalApplication):
         lobby.user_id = user_id
         lobby.parent = weakref.ref(parent)
         lobby.commands = {}
-        lobby.output = []
+        lobby.output = collections.deque([], 25)
         lobby.pending_invitations = set([])
         lobby_machine.handle_unjoined = lobby.handle_unjoined
         lobby_machine.handle_invited = lobby.handle_invited
@@ -589,12 +590,19 @@ class SSHLobbyProtocol(TerminalApplication):
         session_entry = session.get_entry(session_id)
         members = session_entry.members 
         session.destroy_entry(session_id)
+        msg = "{} cancelled the session.".format(user_id)
         for member in members:
             entry = users.get_user_entry(member)
             entry.joined_id = None
             entry.invited_id = None
+            entry.app_protocol.output.append(msg)
             entry.app_protocol.lobby.cancel()
-
+        pending_invitations = self.pending_invitations
+        for player in pending_invitations:
+            entry = users.get_user_entry(player)
+            entry.app_protocol.output.append(msg)
+            entry.app_protocol.lobby.revoke_invitation()
+            
     def signal_shutdown(self):
         """
         Allow the app to shutdown gracefully.
