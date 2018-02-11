@@ -104,6 +104,12 @@ class LobbyMachine(object):
         """
 
     @_machine.input()
+    def revoke_invitation(self):
+        """
+        Revoke an invitation to join a session.
+        """
+
+    @_machine.input()
     def cancel(self):
         """
         Cancel a session that has not yet been started if you are the owner.
@@ -184,6 +190,7 @@ class LobbyMachine(object):
     waiting_for_accepts.upon(send_invitation, enter=waiting_for_accepts, outputs=[_enter_waiting_for_accepts])
     invited.upon(accept, enter=accepted, outputs=[_enter_accepted])
     invited.upon(reject, enter=unjoined, outputs=[_enter_unjoined])
+    invited.upon(revoke_invitation, enter=unjoined, outputs=[_enter_unjoined])
     accepted.upon(start_session, enter=session_started, outputs=[_enter_session_started])
     accepted.upon(cancel, enter=unjoined, outputs=[_enter_unjoined])
 
@@ -194,6 +201,7 @@ class SSHLobbyProtocol(TerminalApplication):
     commands = None
     status = ""
     output = None
+    pending_invitations = None
 
     @classmethod
     def make_instance(klass, reactor, terminal, user_id, parent):
@@ -209,6 +217,7 @@ class SSHLobbyProtocol(TerminalApplication):
         lobby.parent = weakref.ref(parent)
         lobby.commands = {}
         lobby.output = []
+        lobby.pending_invitations = set([])
         lobby_machine.handle_unjoined = lobby.handle_unjoined
         lobby_machine.handle_invited = lobby.handle_invited
         lobby_machine.handle_accepted = lobby.handle_accepted
@@ -508,10 +517,13 @@ class SSHLobbyProtocol(TerminalApplication):
         my_entry = users.get_user_entry(user_id)
         session_id = my_entry.invited_id
         session_entry = session.get_entry(session_id)
+        owner = session_entry.owner
+        owner_entry = users.get_user_entry(owner)
         my_entry.joined_id = session_id
         my_entry.invited_id = None
         session_entry.members.add(user_id)
         self.lobby.accept()
+        owner_entry.app_protocol.pending_invitations.discard(user_id)
         members = set(session_entry.members)
         members.discard(user_id)
         msg = "{} joined session {}.".format(user_id, session_id)
@@ -556,6 +568,13 @@ class SSHLobbyProtocol(TerminalApplication):
         my_entry = users.get_user_entry(user_id)
         session_id = my_entry.joined_id
         session_entry = session.get_entry(session_id)
+        for player in self.pending_invitations:
+            player_entry = users.get_user_entry(player)
+            player_entry.app_protocol.lobby.revoke_invitation()
+            msg = "Session '{}' was started.  Your invitation has been revoked.".format(session_id)
+            player_entry.app_protocol.output.append(msg)
+            player_entry.invited_id = None
+            player_entry.app_protocol.update_display()
         members = session_entry.members 
         for member in members:
             entry = users.get_user_entry(member)

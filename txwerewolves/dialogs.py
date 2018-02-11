@@ -803,24 +803,24 @@ class ChoosePlayerDialog(TermDialog):
             self.player_pos = pos
         
     def _send_invite_to_player(self):
-        parent = self.parent()
-        user_id = parent.user_id
+        my_lobby = self.parent()
+        user_id = my_lobby.user_id
         my_entry = users.get_user_entry(user_id)
         player = self.players[self.player_pos]
         other_entry = users.get_user_entry(player)
         if other_entry.invited_id is not None:
-            parent.output.append("'{}' has already been invited to a session.".format(player))
+            my_lobby.output.append("'{}' has already been invited to a session.".format(player))
             self.uninstall_dialog()
             return
         if other_entry.joined_id is not None:
-            parent.output.append("'{}' has already joined a session.".format(player))
+            my_lobby.output.append("'{}' has already joined a session.".format(player))
             self.uninstall_dialog()
             return
         other_entry.invited_id = my_entry.joined_id
         other_entry.app_protocol.lobby.receive_invitation()
-        parent.output.append("Sent invite to '{}'.".format(player))
-        my_entry.app_protocol.lobby.send_invitation()
-        parent.dialog = None
+        my_lobby.output.append("Sent invite to '{}'.".format(player))
+        my_lobby.lobby.send_invitation()
+        my_lobby.pending_invitations.add(player)
         self.uninstall_dialog()
 
 
