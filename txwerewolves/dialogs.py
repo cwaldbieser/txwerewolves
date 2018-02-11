@@ -97,21 +97,24 @@ class HelpDialog(TermDialog):
         terminal.write(gchars.DBORDER_DOWN_LEFT)
         terminal.write(gchars.DBORDER_HORIZONTAL * (help_w - 2))
         terminal.write(gchars.DBORDER_DOWN_RIGHT)
-        row = help_top + help_h // 2
         msg = "Available Commands"
-        pos = help_left + (help_w - len(msg)) // 2
         emca48 = A.underline[msg, -A.underline[""]]
-        msg = assembleFormattedText(emca48)
-        terminal.cursorPosition(pos, row)
-        terminal.write(msg)
+        heading = assembleFormattedText(emca48)
         text = textwrap.dedent("""\
             h        - This help.
             q or ESC - Quit dialog.
             TAB      - Toggle chat window. 
             CTRL-A   - Session admin mode.  Change game settings / restart.
+            CTRL-X   - Quit to lobby.
+            CTRL-D   - Disconnect (may reconnect later).
             """)
         lines = wrap_paras(text, help_w - 4)
-        row += 1
+        row_count = len(lines) + 2
+        row = help_top + max((help_h - row_count) // 2, 1) 
+        pos = help_left + (help_w - len(msg)) // 2
+        terminal.cursorPosition(pos, row)
+        terminal.write(heading)
+        row += 2
         pos = help_left + 2
         for line in lines:
             row += 1
