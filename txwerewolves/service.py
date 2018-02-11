@@ -21,7 +21,7 @@ from twisted.internet import endpoints, reactor
 class SSHService(Service):
     reactor = reactor
     realmFactory = auth.SSHRealm
-    endpointStr = 'tcp:2022'
+    endpoint_str = 'tcp:2022'
     servicePrivateKey = 'ssh-keys/ssh_host_rsa_key'
     servicePublicKey = 'ssh-keys/ssh_host_rsa_key.pub'
     key_db_path = 'users/user_keys.json'
@@ -85,7 +85,7 @@ class SSHService(Service):
         key_map = dict(l)
         keydb = InMemorySSHKeyDB(key_map)
         factory.portal.registerChecker(SSHPublicKeyChecker(keydb))
-        ep = endpoints.serverFromString(self.reactor, self.endpointStr)
+        ep = endpoints.serverFromString(self.reactor, self.endpoint_str)
         d = ep.listen(factory)
         self.port_info_ = []
         d.addCallback(self.onListen)
