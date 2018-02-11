@@ -1147,13 +1147,11 @@ class SSHGameProtocol(TerminalApplication):
         self.install_dialog(dialog)
 
     def _show_chat(self):
-        dialog = ChatDialog()
         input_buf = self.input_buf
-        dialog.input_buf = input_buf
         game = self.game
         session_entry = session.get_entry(game.session_id)
         output_buf = session_entry.chat_buf
-        dialog.output_buf = output_buf
+        dialog = ChatDialog.make_instance(input_buf, output_buf)
         self.install_dialog(dialog)
         self.new_chat_flag = False
 

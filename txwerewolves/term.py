@@ -45,8 +45,6 @@ class TerminalAdapterProtocol(TerminalProtocol):
             log.msg("key_id: {}".format(key_id))
         if key_id == self.CTRL_D:
             self.terminal.loseConnection()
-        elif key_id == 'R':
-            self.app_protocol.update_display()
         elif key_id == self.CTRL_X:
             self.reset_app_protocol()
         else:

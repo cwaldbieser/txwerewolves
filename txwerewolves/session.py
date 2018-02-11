@@ -1,4 +1,5 @@
 
+import collections
 import random
 import attr
 
@@ -23,7 +24,6 @@ class SessionRegistryInfo(object):
     owner = attr.attrib(default=None)
     appstate = attr.attrib(default=None)
     chat_buf = attr.attrib(default=None)
-    chat_buf_size = attr.attrib(default=50)
 
 
 def create_session():
@@ -43,8 +43,7 @@ def create_session():
     if entry is None:
         raise Exception("Could not create session ID.")
     _session_registry[session_id] = entry
-    entry.chat_buf = []
-    entry.chat_buf_size = 50
+    entry.chat_buf = collections.deque([], 50)
     return entry
 
 def get_entry(session_id):

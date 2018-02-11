@@ -21,7 +21,8 @@ from twisted.internet import defer
 from twisted.python import log
 from txwerewolves.apps import TerminalApplication
 from txwerewolves.dialogs import (
-   ChoosePlayerDialog, 
+    ChatDialog,
+    ChoosePlayerDialog, 
 )
 from txwerewolves.game import SSHGameProtocol
 from txwerewolves import graphics_chars as gchars
@@ -197,12 +198,14 @@ class LobbyMachine(object):
 
 
 class SSHLobbyProtocol(TerminalApplication):
-    lobby = None
-    instructions = ""
     commands = None
-    status = ""
+    instructions = ""
+    input_buf = None
+    lobby = None
+    new_chat_flag = False
     output = None
     pending_invitations = None
+    status = ""
 
     @classmethod
     def make_instance(klass, reactor, terminal, user_id, parent):
@@ -219,6 +222,7 @@ class SSHLobbyProtocol(TerminalApplication):
         lobby.commands = {}
         lobby.output = collections.deque([], 25)
         lobby.pending_invitations = set([])
+        lobby.input_buf = []
         lobby_machine.handle_unjoined = lobby.handle_unjoined
         lobby_machine.handle_invited = lobby.handle_invited
         lobby_machine.handle_accepted = lobby.handle_accepted
@@ -232,9 +236,15 @@ class SSHLobbyProtocol(TerminalApplication):
         """
         Parse user input and act on commands.
         """
-        if self.dialog is not None:
-            self.dialog.handle_input(key_id, modifiers)
-        else:
+        ORD_TAB = 9
+        handled = False
+        dialog = self.dialog
+        if not handled and not dialog is None:
+            handled = dialog.handle_input(key_id, modifiers)
+        if not handled and ord(key_id) == ORD_TAB:
+            self._show_chat()
+            handled = True
+        if not handled and not self.commands is None:
             func = self.commands.get(key_id)
             if func is None:
                 return
@@ -254,7 +264,30 @@ class SSHLobbyProtocol(TerminalApplication):
         self._update_instructions()
         self._show_output()
         self._show_dialog()
-        terminal.cursorPosition(0, th - 1)
+        dialog = self.dialog
+        if dialog is not None:
+            handled = dialog.set_cursor_pos()
+        else:
+            handled = False
+        if not handled:
+            terminal.cursorPosition(0, th - 1)
+
+    def _show_chat(self):
+        input_buf = self.input_buf
+        user_id = self.user_id
+        user_entry = users.get_user_entry(user_id)
+        session_id = None
+        if not user_entry.joined_id is None:
+            session_id = user_entry.joined_id
+        elif not user_entry.invited_id is None:
+            session_id = user_entry.invited_id
+        if session_id is None:
+            return
+        session_entry = session.get_entry(session_id)
+        output_buf = session_entry.chat_buf
+        dialog = ChatDialog.make_instance(input_buf, output_buf)
+        self.install_dialog(dialog)
+        self.new_chat_flag = False
 
     def _draw_border(self):
         """

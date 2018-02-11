@@ -144,6 +144,13 @@ class ChatDialog(TermDialog):
     output_buf = None
     pos = 0
 
+    @classmethod
+    def make_instance(klass, input_buf, output_buf):
+        instance = klass()
+        instance.input_buf = input_buf
+        instance.output_buf = output_buf
+        return instance
+
     def draw(self):
         """
         Show chat window.
@@ -284,10 +291,8 @@ class ChatDialog(TermDialog):
     def handle_input(self, key_id, modifier):
         try:
             key_ord = ord(key_id)
-            log.msg("key_ord: {}, mod: {}".format(key_ord, modifier))
         except TypeError as ex:
             key_ord = None
-        log.msg("key_id: {}".format(key_id))
         if key_ord == 9:
             self.uninstall_dialog()
         elif key_ord == 127: #backspace
@@ -306,8 +311,13 @@ class ChatDialog(TermDialog):
 
     def _signal_dialogs_redraw(self):
         user_id = self.user_id
-        game = self.parent().game
-        session_id = game.session_id
+        user_entry = users.get_user_entry(user_id)
+        session_id = user_entry.joined_id
+        if session_id is None:
+            session_id = user_entry.invited_id
+        if session_id is None:
+            self.uninstall_dialog()
+            return
         session_entry = session.get_entry(session_id)
         members = set(session_entry.members)
         members.discard(user_id)
