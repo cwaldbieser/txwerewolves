@@ -115,7 +115,8 @@ class HelpDialog(TermDialog):
         terminal.cursorPosition(pos, row)
         terminal.write(heading)
         row += 2
-        pos = help_left + 2
+        text_w = max(len(line) for line in lines)
+        pos = help_left + (help_w - text_w) // 2
         for line in lines:
             row += 1
             terminal.cursorPosition(pos, row)
@@ -123,13 +124,17 @@ class HelpDialog(TermDialog):
                 terminal.write("...")
                 break
             terminal.write(line)
+        footer = "Press any key to close help."
+        pos = help_left + (help_w - len(footer)) // 2
+        row = help_top + help_h - 2
+        terminal.cursorPosition(pos, row)
+        emca48 = A.bold[footer, -A.bold[""]]
+        text = assembleFormattedText(emca48)
+        terminal.write(text)
         terminal.cursorPosition(0, th - 1)
         
     def handle_input(self, key_id, modifier):
-        log.msg("key_id: {}, mod: {}".format(ord(key_id), modifier))
-        if key_id == 'q' or ord(key_id) == 27:
-            self.uninstall_dialog()
-            return True
+        self.uninstall_dialog()
         return True
 
 
