@@ -385,6 +385,14 @@ class SSHLobbyProtocol(TerminalApplication):
         terminal.write(gchars.DHBORDER_DOWN_LEFT)
         terminal.write(gchars.DBORDER_HORIZONTAL * (maxwidth + 2))
         terminal.write(gchars.DHBORDER_DOWN_RIGHT)
+        if self.new_chat_flag:
+            msg = "New Chat Message"
+            pos = (tw - len(msg)) // 2
+            row = 14
+            emca48 = A.bold[msg, -A.bold[""]]
+            text = assembleFormattedText(emca48)
+            terminal.cursorPosition(pos, row)
+            terminal.write(text)
 
     def _show_output(self):
         """

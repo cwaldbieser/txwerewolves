@@ -321,6 +321,9 @@ class ChatDialog(TermDialog):
         session_entry = session.get_entry(session_id)
         members = set(session_entry.members)
         members.discard(user_id)
+        fltr = lambda x: x.invited_id == session_id
+        invited_ids = [x.user_id for x in users.generate_user_entries(fltr)]
+        members = members.union(invited_ids)
         for player in members:
             user_entry = users.get_user_entry(player)
             app_protocol = user_entry.app_protocol
