@@ -11,6 +11,8 @@ class UserRegistryEntry(object):
     app_protocol = attr.attrib(default=None)
     invited_id = attr.attrib(default=None)
     joined_id = attr.attrib(default=None)
+    web_cookie = attr.attrib(default=None)
+
 
 def get_user_ids():
     """

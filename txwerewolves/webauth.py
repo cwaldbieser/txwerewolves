@@ -1,0 +1,143 @@
+
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+)
+import json
+from txwerewolves import users
+import attr
+import six
+from twisted.cred.checkers import ICredentialsChecker
+from twisted.cred.credentials import ICredentials
+from twisted.cred.portal import IRealm
+from twisted.cred.error import UnauthorizedLogin
+from twisted.internet import defer
+from zope.interface import (
+    implementer,
+    Interface,
+)
+
+
+class IWebRequestCredential(ICredentials):
+    pass
+
+
+class IWebUser(Interface):
+    pass
+
+ 
+@implementer(IWebRequestCredential)
+@attr.attrs
+class WebRequestCredential(object):
+    request = attr.attrib()
+
+
+@implementer(ICredentialsChecker)
+class WerewolfWebCredChecker(object):
+    credentialInterfaces = [IWebRequestCredential]
+
+    @classmethod
+    def make_instance(klass):
+        instance = klass()
+        return instance 
+    
+    def requestAvatarId(self, credentials):
+        if IWebRequestCredential.providedBy(credentials):
+            request = credentials.request
+            # User ID in session?
+            session = request.getSession()
+            info = ISessionInfo(session)
+            user_id = info.user_id
+            if not user_id is None:
+                return user_id
+            # User ID in request?
+            args = request.args
+            name = args.get("name", [None])[0]
+            if not name is None:
+                info.user_id = name
+                return name
+        return defer.fail(UnauthorizedLogin())
+                
+
+@implementer(IWebUser)
+class WebAvatar(object):
+    user_id = None
+    reactor = None
+    _event_source = None
+
+    @classmethod
+    def make_instance(klass, user_id, reactor):
+        instance = klass()
+        instance.user_id = user_id 
+        instance.reactor = reactor
+        return instance
+
+    def connect_event_source(self, event_source):
+        """
+        Connect a long connected request from avatar to the
+        client so that Server Sent Events (SSEs) can be sent
+        to it in `text/event-stream` format.
+        """
+        event_source.setHeader('content-type', 'text/event-stream')
+        self._event_source = event_source
+
+    def send_event_to_client(self, data):
+        """
+        Send `data` to a client browser.  `data` should be a string.
+        """
+        event_source = self._event_source
+        if event_source is None:
+            return
+        for line in data.split('\n'):
+            event_source.write('data: ' + line + '\r\n')
+        event_source.write('\r\n')
+
+    def shut_down(self):
+        """
+        Part of avatar interface.
+        Shuts down the client attached to this avatar, then
+        closes this avatar.
+        A new avatar will be attached to the application
+        at the same state.
+        """
+        o = {'command': 'shut-down'}
+        msg = json.dumps(o)
+        self.send_event_to_client(msg) 
+
+
+@implementer(IRealm)
+class WebRealm(object):
+    reactor = None
+
+    @classmethod
+    def make_instance(klass, reactor):
+        instance = klass()
+        instance.reactor = reactor
+        return instance
+
+    def requestAvatar(self, avatarId, mind, *interfaces):
+        if IWebUser in interfaces:
+            entry = users.register_user(avatarId)
+            avatar = entry.avatar
+            if avatar is not None:
+                avatar.shut_down()
+            entry.avatar = avatar
+            avatar = WebAvatar.make_instance(avatarId, self.reactor)
+            return (IWebUser, avatar, lambda: None)
+        else:
+            raise Exception("No supported interfaces found.")
+
+
+class ISessionInfo(Interface):
+    pass
+
+
+@implementer(ISessionInfo)
+class SessionInfo(object):
+    user_id = None
+    
+    def __init__(self, session):
+        self.user_id = None
+
+

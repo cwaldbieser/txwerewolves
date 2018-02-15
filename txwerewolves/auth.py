@@ -83,6 +83,16 @@ class SSHAvatar(ConchUser):
     def closed(self):
         pass
 
+    def shut_down(self):
+        """
+        Part of avatar interface.
+        Shuts down the client attached to this avatar, then
+        closes this avatar.
+        A new avatar will be attached to the application
+        at the same state.
+        """
+        shut_down_avatar(self)
+
 
 class SSHRealm(object):
     implements(IRealm)
