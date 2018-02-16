@@ -83,6 +83,16 @@ class SSHAvatar(ConchUser):
     def closed(self):
         pass
 
+    def send_message(self, msg):
+        """
+        Avatar interface.
+        Display a message to the client connecting to
+        this avatar.
+        """
+        term_protocol = self.ssh_protocol.terminalProtocol
+        app_protocol = term_protocol.app_protocol
+        app_protocol.output.append(msg)
+
     def shut_down(self):
         """
         Part of avatar interface.

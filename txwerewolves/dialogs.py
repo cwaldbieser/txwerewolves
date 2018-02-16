@@ -827,19 +827,21 @@ class ChoosePlayerDialog(TermDialog):
         my_lobby = self.parent()
         user_id = my_lobby.user_id
         my_entry = users.get_user_entry(user_id)
+        my_avatar = my_entry.avatar
         player = self.players[self.player_pos]
         other_entry = users.get_user_entry(player)
+        other_avatar = other_entry.avatar
         if other_entry.invited_id is not None:
-            my_lobby.output.append("'{}' has already been invited to a session.".format(player))
+            my_avatar.send_message("'{}' has already been invited to a session.".format(player))
             self.uninstall_dialog()
             return
         if other_entry.joined_id is not None:
-            my_lobby.output.append("'{}' has already joined a session.".format(player))
+            my_avatar.send_message("'{}' has already joined a session.".format(player))
             self.uninstall_dialog()
             return
         other_entry.invited_id = my_entry.joined_id
         other_entry.app_protocol.lobby.receive_invitation()
-        my_lobby.output.append("Sent invite to '{}'.".format(player))
+        my_avatar.send_message("Sent invite to '{}'.".format(player))
         my_lobby.lobby.send_invitation()
         my_lobby.pending_invitations.add(player)
         self.uninstall_dialog()

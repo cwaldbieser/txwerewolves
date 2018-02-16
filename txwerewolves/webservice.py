@@ -12,6 +12,7 @@ from klein import Klein
 from six.moves import urllib
 from twisted.application.service import Service
 from twisted.cred.portal import Portal
+from twisted.internet import defer
 from twisted.internet.endpoints import serverFromString
 from twisted.python.components import registerAdapter
 from twisted.python import log
@@ -38,6 +39,7 @@ def webauthn(f):
     def _authn(self, request, *args, **kwds):
         info = webauth.ISessionInfo(request.getSession())
         if info.user_id is None:
+            log.msg("Not authorized; redirecting ...")
             request.redirect("/login")
         else:
             return f(self, request, *args, **kwds)
@@ -64,7 +66,40 @@ class WebResources(object):
     @app.route('/lobby')
     @webauthn
     def lobby(self, request):
-        return "The Lobby"
+        return textwrap.dedent("""\
+            <!DOCTYPE html>
+            <html>
+                <head><title>The Lobby</title></head>
+                <body>
+                    <ul id="output">
+                        <li>In the lobby ...</li>
+                    </ul>
+                    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+                    <script type="text/javascript">
+                        $(document).ready(function() {
+                            var source = new EventSource('/subscribe');
+                            source.onmessage = function(event) {
+                                console.log(event.data);
+                                var li = $("<li>")
+                                    .text(event.data)
+                                    .appendTo($("#output"));
+                            };
+                        });
+                    </script>
+                </body>
+            </html>
+            """)
+
+    @app.route('/subscribe')
+    def subscribe(self, request):
+        log.msg("routed to /subscribe")
+        info = webauth.ISessionInfo(request.getSession())
+        user_id = info.user_id
+        entry = users.get_user_entry(user_id)
+        avatar = entry.avatar
+        avatar.connect_event_source(request)
+        d = defer.Deferred()
+        return d
 
     @app.route('/login', methods=['GET', 'POST'])
     def login(self, request):
@@ -77,6 +112,7 @@ class WebResources(object):
     def _get_login(self, request):
         log.msg("request: {}".format(request.__class__))
         return textwrap.dedent("""\
+        <!DOCTYPE html>
         <html>
         <head><title>Login</title></head>
         <body>
@@ -104,7 +140,7 @@ class WebResources(object):
         user_id = avatar.user_id
         info = webauth.ISessionInfo(request.getSession())
         info.user_id = user_id
-        request.redirect("/")
+        request.redirect("/lobby")
 
     def _handle_login_fail(self, failure, request):
         log.msg("Handle failure: {}".format(failure))

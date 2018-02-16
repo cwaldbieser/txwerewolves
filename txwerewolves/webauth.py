@@ -5,7 +5,11 @@ from __future__ import (
     print_function,
 )
 import json
-from txwerewolves import users
+import weakref
+from txwerewolves import (
+    lobby,
+    users,
+)
 import attr
 import six
 from twisted.cred.checkers import ICredentialsChecker
@@ -13,6 +17,7 @@ from twisted.cred.credentials import ICredentials
 from twisted.cred.portal import IRealm
 from twisted.cred.error import UnauthorizedLogin
 from twisted.internet import defer
+from twisted.python import log
 from zope.interface import (
     implementer,
     Interface,
@@ -71,7 +76,23 @@ class WebAvatar(object):
         instance = klass()
         instance.user_id = user_id 
         instance.reactor = reactor
+        instance.init_app_protocol()
         return instance
+
+    def init_app_protocol(self):
+        user_id = self.user_id
+        user_entry = users.get_user_entry(user_id)
+        user_entry.avatar = self
+        app_protocol = user_entry.app_protocol
+        if app_protocol is None:
+            app_protocol = lobby.WebLobbyProtocol.make_instance(
+                self.reactor,
+                user_id,
+                self)
+            user_entry.app_protocol = app_protocol
+        app_protocol = user_entry.app_protocol
+        app_protocol.reactor = self.reactor
+        app_protocol.parent = weakref.ref(self)  
 
     def connect_event_source(self, event_source):
         """
@@ -81,17 +102,21 @@ class WebAvatar(object):
         """
         event_source.setHeader('content-type', 'text/event-stream')
         self._event_source = event_source
+        log.msg("Connected event source to avatar.")
 
     def send_event_to_client(self, data):
         """
         Send `data` to a client browser.  `data` should be a string.
         """
         event_source = self._event_source
+        log.msg("send_event_to_client(): event_source: {}".format(event_source))
         if event_source is None:
             return
         for line in data.split('\n'):
             event_source.write('data: ' + line + '\r\n')
+            log.msg("Wrote event: {}".format(line))
         event_source.write('\r\n')
+        log.msg("Wrote event end.")
 
     def shut_down(self):
         """
@@ -122,8 +147,8 @@ class WebRealm(object):
             avatar = entry.avatar
             if avatar is not None:
                 avatar.shut_down()
-            entry.avatar = avatar
             avatar = WebAvatar.make_instance(avatarId, self.reactor)
+            entry.avatar = avatar
             return (IWebUser, avatar, lambda: None)
         else:
             raise Exception("No supported interfaces found.")

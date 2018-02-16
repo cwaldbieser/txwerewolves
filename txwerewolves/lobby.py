@@ -5,6 +5,7 @@ from __future__ import (
     print_function,
 )
 import collections
+import json
 import weakref
 from txwerewolves import (
     session,
@@ -651,5 +652,274 @@ class SSHLobbyProtocol(TerminalApplication):
         pass
 
 
+class WebLobbyProtocol(object):
+    handlers = None
+    lobby = None
+    parent = None
+    pending_invitations = None
+    reactor = None
+    user_id = None
+
+
+    @property
+    def avatar(self):
+        user_id = self.user_id
+        entry = users.get_user_entry(user_id)
+        return entry.avatar
+
+    @classmethod
+    def make_instance(klass, reactor, user_id, parent):
+        """
+        Class factory.
+        """
+        lobby_machine = LobbyMachine()
+        lobby = klass()
+        lobby.lobby = lobby_machine
+        lobby.reactor = reactor
+        lobby.user_id = user_id
+        lobby.parent = weakref.ref(parent)
+        lobby.pending_invitations = set([])
+        lobby.handlers = {}
+        lobby_machine.handle_unjoined = lobby.handle_unjoined
+        lobby_machine.handle_invited = lobby.handle_invited
+        lobby_machine.handle_accepted = lobby.handle_accepted
+        lobby_machine.handle_waiting_for_accepts = lobby.handle_waiting_for_accepts
+        lobby_machine.handle_session_started = lobby.handle_session_started
+        lobby_machine.handle_invited = lobby.handle_invited
+        lobby_machine.initialize()
+        return lobby
+
+    def handle_input(self, message):
+        """
+        Parse user input and act on commands.
+        """
+        pass
+
+    def handle_unjoined(self):
+        avatar = self.avatar
+        command = {'status': 'You are not part of any session.'}
+        command_string = json.dumps(command)
+        avatar.send_event_to_client(command_string)
+        command = {
+            'actions': [
+                ('Invite Players', 'Invite players to join a session.', 0),
+                ('List Players', 'List players in the lobby.', 1),
+            ]
+        }
+        command_string = json.dumps(command)
+        avatar.send_event_to_client(command_string)
+        self.handlers = {
+            1: self._list_players,
+            0: self._invite,
+        }
+    
+    def handle_waiting_for_accepts(self):
+        user_id = self.user_id
+        user_entry = users.get_user_entry(user_id)
+        self.status = "Session {} - Waiting for Responses".format(
+                user_entry.joined_id)
+        self.instructions = textwrap.dedent("""\
+        Valid commands are:
+        * (s)tart                     - Start the session with the current members.
+        * (i)nvite                    - Invite another player.
+        * (j)oined                    - Show players that have joined the session.
+        * (c)ancel                    - Cancel the session.
+        """)
+        self.commands = {
+            's': self._start_session,
+            'i': self._invite,
+            'j': self._show_joined,
+            'c': self._cancel_session,
+        }
+        self.update_display()
+    
+    def handle_session_started(self):
+        proto = SSHGameProtocol.make_protocol(
+            user_id=self.user_id,
+            terminal=self.terminal,
+            term_size=self.term_size,
+            parent=self.parent,
+            reactor=self.reactor)
+        self.parent().install_application(proto)
+
+    def handle_invited(self):
+        user_entry = users.get_user_entry(self.user_id)
+        avatar = self.avatar
+        command = {'status': "Invited to join session '{}'.".format(user_entry.invited_id)}
+        command_string = json.dumps(command)
+        avatar.send_event_to_client(command_string)
+        command = {
+            'actions': [
+                ('Accept', 'Accept invitation to join session.', 0),
+                ('Reject', 'Reject invitation to join session.', 1),
+            ]
+        }
+        command_string = json.dumps(command)
+        avatar.send_event_to_client(command_string)
+        self.handlers = {
+            0: self._accept_invitation,
+            1: self._reject_invitation,
+        }
+
+    def handle_accepted(self):
+        my_entry = users.get_user_entry(self.user_id)
+        self.status = "Joined session '{}'".format(my_entry.joined_id)
+        self.instructions = textwrap.dedent("""\
+        Valid commands are:
+        * (j)oined                    - List players that have joined the session.
+        * (c)ancel                    - Leave the session.
+        """)
+        self.commands = {
+            'j': self._show_joined,
+            'c': self._leave_session,
+        }
+        self.update_display()
+
+    def _list_players(self):
+        """
+        List players.
+        """
+        fltr = lambda e: (e.invited_id is None) and (e.joined_id is None)
+        user_ids = [e.user_id for e in users.generate_user_entries(fltr=fltr)]
+        self.output.append("Available Players:\n{}".format('\n'.join(user_ids)))
+        self.update_display()
+
+    def _invite(self):
+        """
+        Invite another player or players to join a session.
+        """
+        this_player = self.user_id
+        my_entry = users.get_user_entry(this_player)
+        fltr = lambda e: (e.invited_id is None) and (e.joined_id is None)
+        players = set([e.user_id for e in users.generate_user_entries(fltr=fltr)])
+        players.discard(this_player)
+        if len(players) == 0:
+            self.output.append("No other players to invite at this time.")
+            self.update_display()
+            return
+        players = list(players)
+        players.sort()
+        user_entry = users.get_user_entry(this_player)
+        if my_entry.joined_id is None:
+            session_entry = session.create_session()
+            user_entry.joined_id = session_entry.session_id
+            session_entry.owner = this_player
+            session_entry.members.add(this_player)
+            self.lobby.create_session()
+        dialog = ChoosePlayerDialog.make_dialog(players)
+        self.install_dialog(dialog)
+
+    def _show_joined(self):
+        """
+        List the players that have joined the session.
+        """
+        user_id = self.user_id
+        my_entry = users.get_user_entry(user_id)
+        session_id = my_entry.joined_id
+        session_entry = session.get_entry(session_id)
+        members = list(session_entry.members)
+        members.sort()
+        lines = []
+        lines.append("The following players have joined the session:")
+        for n, player in enumerate(members): 
+            lines.append("{}) {}".format(n + 1, player))
+        self.output.append('\n'.join(lines))
+        self.update_display()
+
+    def _accept_invitation(self):
+        user_id = self.user_id
+        my_entry = users.get_user_entry(user_id)
+        session_id = my_entry.invited_id
+        session_entry = session.get_entry(session_id)
+        owner = session_entry.owner
+        owner_entry = users.get_user_entry(owner)
+        my_entry.joined_id = session_id
+        my_entry.invited_id = None
+        session_entry.members.add(user_id)
+        self.lobby.accept()
+        pending_invitations = owner_entry.app_protocol.pending_invitations
+        pending_invitations.discard(user_id)
+        members = set(session_entry.members)
+        members.discard(user_id)
+        members = members.union(pending_invitations)
+        msg = "{} joined session {}.".format(user_id, session_id)
+        for player in members:
+            user_entry = users.get_user_entry(player)
+            app_protocol = user_entry.app_protocol
+            app_protocol.output.append(msg)    
+            app_protocol.update_display()
+
+    def _reject_invitation(self):
+        user_id = self.user_id
+        my_entry = users.get_user_entry(user_id)
+        session_id = my_entry.invited_id
+        my_entry.invited_id = None
+        self.lobby.reject()
+        session_entry = session.get_entry(session_id)
+        owner = session_entry.owner
+        owner_entry = users.get_user_entry(owner)
+        owner_lobby = owner_entry.app_protocol
+        owner_lobby.output.append("{} rejected your invitation.".format(user_id))
+        owner_lobby.update_display() 
+
+    def _leave_session(self):
+        user_id = self.user_id
+        my_entry = users.get_user_entry(user_id)
+        session_id = my_entry.joined_id
+        my_entry.joined_id = None
+        session_entry = session.get_entry(session_id)
+        session_entry.members.discard(user_id)
+        self.lobby.cancel()
+        members = set(session_entry.members)
+        members.discard(user_id)
+        msg = "{} left session {}.".format(user_id, session_id)
+        for player in members:
+            user_entry = users.get_user_entry(player)
+            app_protocol = user_entry.app_protocol
+            app_protocol.output.append(msg)    
+            app_protocol.update_display()
+
+    def _start_session(self):
+        user_id = self.user_id
+        my_entry = users.get_user_entry(user_id)
+        session_id = my_entry.joined_id
+        session_entry = session.get_entry(session_id)
+        for player in self.pending_invitations:
+            player_entry = users.get_user_entry(player)
+            player_entry.app_protocol.lobby.revoke_invitation()
+            msg = "Session '{}' was started.  Your invitation has been revoked.".format(session_id)
+            player_entry.app_protocol.output.append(msg)
+            player_entry.invited_id = None
+            player_entry.app_protocol.update_display()
+        members = session_entry.members 
+        for member in members:
+            entry = users.get_user_entry(member)
+            entry.app_protocol.lobby.start_session()
+
+    def _cancel_session(self):
+        user_id = self.user_id
+        my_entry = users.get_user_entry(user_id)
+        session_id = my_entry.joined_id
+        session_entry = session.get_entry(session_id)
+        members = session_entry.members 
+        session.destroy_entry(session_id)
+        msg = "{} cancelled the session.".format(user_id)
+        for member in members:
+            entry = users.get_user_entry(member)
+            entry.joined_id = None
+            entry.invited_id = None
+            entry.app_protocol.output.append(msg)
+            entry.app_protocol.lobby.cancel()
+        pending_invitations = self.pending_invitations
+        for player in pending_invitations:
+            entry = users.get_user_entry(player)
+            entry.app_protocol.output.append(msg)
+            entry.app_protocol.lobby.revoke_invitation()
+            
+    def signal_shutdown(self):
+        """
+        Allow the app to shutdown gracefully.
+        """
+        pass
 
 

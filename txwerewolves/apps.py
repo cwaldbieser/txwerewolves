@@ -1,4 +1,9 @@
 
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+)
 import weakref
 
 
@@ -12,6 +17,12 @@ class TerminalApplication(object):
     term_size = (80, 24)
     terminal = None
     user_id = None
+
+    @property
+    def avatar(self):
+        user_id = self.user_id
+        entry = users.get_user_entry(user_id)
+        return entry.avatar
 
     def handle_input(self, key_id, modifiers):
         """
