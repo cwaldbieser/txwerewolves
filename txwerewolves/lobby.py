@@ -653,13 +653,14 @@ class SSHLobbyProtocol(TerminalApplication):
 
 
 class WebLobbyProtocol(object):
+    actions = None
     handlers = None
     lobby = None
     parent = None
     pending_invitations = None
     reactor = None
     user_id = None
-
+    status = ""
 
     @property
     def avatar(self):
@@ -680,6 +681,7 @@ class WebLobbyProtocol(object):
         lobby.parent = weakref.ref(parent)
         lobby.pending_invitations = set([])
         lobby.handlers = {}
+        lobby.actions = {}
         lobby_machine.handle_unjoined = lobby.handle_unjoined
         lobby_machine.handle_invited = lobby.handle_invited
         lobby_machine.handle_accepted = lobby.handle_accepted
@@ -695,19 +697,26 @@ class WebLobbyProtocol(object):
         """
         pass
 
+    def request_update(self, key):
+        """
+        Part of application interface.
+        Update the client based on the key provided.
+        """
+        if key == 'status':
+            self._update_client_status()    
+        elif key == 'actions':
+            self._update_client_actions()
+
     def handle_unjoined(self):
         avatar = self.avatar
-        command = {'status': 'You are not part of any session.'}
-        command_string = json.dumps(command)
-        avatar.send_event_to_client(command_string)
-        command = {
-            'actions': [
-                ('Invite Players', 'Invite players to join a session.', 0),
-                ('List Players', 'List players in the lobby.', 1),
-            ]
-        }
-        command_string = json.dumps(command)
-        avatar.send_event_to_client(command_string)
+        self.status = 'You are not part of any session.'
+        self._update_client_status()
+        actions = [
+            ('Invite Players', 'Invite players to join a session.', 0),
+            ('List Players', 'List players in the lobby.', 1),
+        ]
+        self.actions = actions
+        self._update_client_actions()
         self.handlers = {
             1: self._list_players,
             0: self._invite,
@@ -745,17 +754,15 @@ class WebLobbyProtocol(object):
     def handle_invited(self):
         user_entry = users.get_user_entry(self.user_id)
         avatar = self.avatar
-        command = {'status': "Invited to join session '{}'.".format(user_entry.invited_id)}
-        command_string = json.dumps(command)
-        avatar.send_event_to_client(command_string)
-        command = {
-            'actions': [
-                ('Accept', 'Accept invitation to join session.', 0),
-                ('Reject', 'Reject invitation to join session.', 1),
-            ]
-        }
-        command_string = json.dumps(command)
-        avatar.send_event_to_client(command_string)
+        status = "Invited to join session '{}'.".format(user_entry.invited_id)
+        self.status = status
+        self._update_client_status()
+        actions = [
+            ('Accept', 'Accept invitation to join session.', 0),
+            ('Reject', 'Reject invitation to join session.', 1),
+        ]
+        self.actions = actions
+        self._update_client_actions()
         self.handlers = {
             0: self._accept_invitation,
             1: self._reject_invitation,
@@ -775,6 +782,19 @@ class WebLobbyProtocol(object):
         }
         self.update_display()
 
+    def _update_client_status(self):
+        avatar = self.avatar
+        command = {'status': self.status}
+        command_string = json.dumps(command)
+        avatar.send_event_to_client(command_string)
+
+    def _update_client_actions(self):
+        avatar = self.avatar
+        actions = self.actions
+        command = {'actions': actions}
+        command_string = json.dumps(command)
+        avatar.send_event_to_client(command_string)
+        
     def _list_players(self):
         """
         List players.

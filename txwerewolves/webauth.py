@@ -4,6 +4,7 @@ from __future__ import (
     division,
     print_function,
 )
+import collections
 import json
 import weakref
 from txwerewolves import (
@@ -69,6 +70,7 @@ class WerewolfWebCredChecker(object):
 class WebAvatar(object):
     user_id = None
     reactor = None
+    _event_buffer = None
     _event_source = None
 
     @classmethod
@@ -76,8 +78,16 @@ class WebAvatar(object):
         instance = klass()
         instance.user_id = user_id 
         instance.reactor = reactor
+        instance._event_buffer = collections.deque([], 20)
         instance.init_app_protocol()
         return instance
+
+    @property
+    def application(self):
+        user_id = self.user_id
+        user_entry = users.get_user_entry(user_id)
+        app_protocol = user_entry.app_protocol
+        return app_protocol
 
     def init_app_protocol(self):
         user_id = self.user_id
@@ -103,6 +113,10 @@ class WebAvatar(object):
         event_source.setHeader('content-type', 'text/event-stream')
         self._event_source = event_source
         log.msg("Connected event source to avatar.")
+        event_buffer = self._event_buffer
+        while len(event_buffer) > 0:
+            event = event_buffer.pop()
+            self.send_event_to_client(event)
 
     def send_event_to_client(self, data):
         """
@@ -111,6 +125,7 @@ class WebAvatar(object):
         event_source = self._event_source
         log.msg("send_event_to_client(): event_source: {}".format(event_source))
         if event_source is None:
+            self._event_buffer.appendleft(data)
             return
         for line in data.split('\n'):
             event_source.write('data: ' + line + '\r\n')
@@ -130,6 +145,12 @@ class WebAvatar(object):
         msg = json.dumps(o)
         self.send_event_to_client(msg) 
 
+    def request_update_from_app(self, key):
+        """
+        Part of Avatar interface.
+        Request a client update of a particular kind from the application.
+        """
+        self.application.request_update(key)
 
 @implementer(IRealm)
 class WebRealm(object):

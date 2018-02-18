@@ -5,6 +5,7 @@ from __future__ import (
     print_function,
 )
 import json
+import os
 import textwrap
 from txwerewolves import users
 from txwerewolves import webauth
@@ -20,19 +21,10 @@ from twisted.web.server import (
     Session,
     Site,
 )
+from twisted.web.static import File
 import werkzeug
 
-def prefix_resource(request, path="", params="", query="", fragment=""):
-    """
-    Construct a URL using the site prefix and the resource parts.
-    """
-    uri = request.uri
-    log.msg("uri: {}".format(uri))
-    p = urllib.parse.urlparse(uri)
-    p2 = (p.scheme, p.netloc, path, params, query, fragment)
-    url = urllib.parse.urlunparse(p2)
-    return url
-
+static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 
 def webauthn(f):
 
@@ -45,6 +37,16 @@ def webauthn(f):
             return f(self, request, *args, **kwds)
 
     return _authn
+
+def get_avatar(request):
+    """
+    Get the user avatar from the request.
+    """
+    info = webauth.ISessionInfo(request.getSession())
+    user_id = info.user_id
+    entry = users.get_user_entry(user_id)
+    avatar = entry.avatar
+    return avatar
 
 
 class WebResources(object):
@@ -61,7 +63,13 @@ class WebResources(object):
 
     @app.route('/')
     def home(self, request):
-        request.redirect(prefix_resource(request, path="/lobby"))
+        request.redirect("/lobby")
+
+    @app.route('/static/', branch=True)
+    def static(self, request):
+        global static_path
+        log.msg("static_path: {}".format(static_path))
+        return File(static_path)
 
     @app.route('/lobby')
     @webauthn
@@ -69,34 +77,69 @@ class WebResources(object):
         return textwrap.dedent("""\
             <!DOCTYPE html>
             <html>
-                <head><title>The Lobby</title></head>
-                <body>
+                <head>
+                    <title>The Lobby</title>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+                    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+                    </head>
+                    <body>
+                        <h1>The Lobby</h1>
+                    <!--
                     <ul id="output">
-                        <li>In the lobby ...</li>
                     </ul>
-                    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
-                    <script type="text/javascript">
-                        $(document).ready(function() {
-                            var source = new EventSource('/subscribe');
-                            source.onmessage = function(event) {
-                                console.log(event.data);
-                                var li = $("<li>")
-                                    .text(event.data)
-                                    .appendTo($("#output"));
-                            };
-                        });
+                    -->
+                    <div class="container-fluid">
+                        <div class="card">
+                            <div class="card-header">
+                                Status
+                            </div>
+                            <div class="card-body">
+                                <div id="session_status">
+                                    Initializing ...
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                Actions 
+                            </div>
+                            <div class="card-body">
+                                <div id="actions" class="list-group-item list-group-item-action">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <script
+                        src="https://code.jquery.com/jquery-3.3.1.min.js"
+                        integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+                        crossorigin="anonymous">
                     </script>
+                    <script type="text/javascript" src="/static/js/lobby.js"></script>
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+                    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
                 </body>
             </html>
             """)
 
+    @app.route('/lobby/status')
+    def lobby_status(self, request):
+        log.msg("routed to /lobby/status")
+        avatar = get_avatar(request)
+        avatar.request_update_from_app('status')
+
+    @app.route('/lobby/actions')
+    def lobby_actions(self, request):
+        log.msg("routed to /lobby/actions")
+        avatar = get_avatar(request)
+        avatar.request_update_from_app('actions')
+
     @app.route('/subscribe')
     def subscribe(self, request):
         log.msg("routed to /subscribe")
-        info = webauth.ISessionInfo(request.getSession())
-        user_id = info.user_id
-        entry = users.get_user_entry(user_id)
-        avatar = entry.avatar
+        avatar = get_avatar(request)
         avatar.connect_event_source(request)
         d = defer.Deferred()
         return d
@@ -116,7 +159,7 @@ class WebResources(object):
         <html>
         <head><title>Login</title></head>
         <body>
-            <form method="POST" action="/login">
+            <form method="POST" action="/login" accept-charset="utf-8">
                 <label for="user_id">User ID:</label>
                 <input id="user_id" name="name" type="text" maxchars="20">
                 <br>
