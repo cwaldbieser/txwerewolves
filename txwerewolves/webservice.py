@@ -116,6 +116,17 @@ class WebResources(object):
                                 </div>
                             </div>
                         </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                Output 
+                            </div>
+                            <div class="card-body">
+                                <ul id="output" class="list-group">
+                                </ul>
+                            </div>
+                        </div>
+
                     </div>
                     <script
                         src="https://code.jquery.com/jquery-3.3.1.min.js"

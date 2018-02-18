@@ -32,6 +32,14 @@ $(document).ready(function() {
                     .appendTo($("#actions"));
             }
         }
+        if('output' in o)
+        {
+            var message = o['output'];
+            message = message.replace(/\n/g, "<br />");
+            var p = $("<li>")
+                .html(message)
+                .prependTo($("#output"));
+        }
         //var li = $("<li>")
         //    .text(event.data)
         //    .appendTo($("#output"));
