@@ -691,11 +691,13 @@ class WebLobbyProtocol(object):
         lobby_machine.initialize()
         return lobby
 
-    def handle_input(self, message):
+    def handle_input(self, command):
         """
         Parse user input and act on commands.
         """
-        pass
+        handlers = self.handlers
+        f = handlers[command]
+        f()  
 
     def request_update(self, key):
         """
@@ -794,6 +796,12 @@ class WebLobbyProtocol(object):
         command = {'actions': actions}
         command_string = json.dumps(command)
         avatar.send_event_to_client(command_string)
+
+    def _send_output_to_client(self, msg):
+        avatar = self.avatar
+        command = {'output': msg}
+        command_string = json.dumps(command)
+        avatar.send_event_to_client(command_string)
         
     def _list_players(self):
         """
@@ -801,8 +809,8 @@ class WebLobbyProtocol(object):
         """
         fltr = lambda e: (e.invited_id is None) and (e.joined_id is None)
         user_ids = [e.user_id for e in users.generate_user_entries(fltr=fltr)]
-        self.output.append("Available Players:\n{}".format('\n'.join(user_ids)))
-        self.update_display()
+        msg = "Available Players:\n{}".format('\n'.join(user_ids))
+        self._send_output_to_client(msg)
 
     def _invite(self):
         """

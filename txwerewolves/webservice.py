@@ -26,17 +26,14 @@ import werkzeug
 
 static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 
-def webauthn(f):
-
-    def _authn(self, request, *args, **kwds):
-        info = webauth.ISessionInfo(request.getSession())
-        if info.user_id is None:
-            log.msg("Not authorized; redirecting ...")
-            request.redirect("/login")
-        else:
-            return f(self, request, *args, **kwds)
-
-    return _authn
+def check_authenticated(request):
+    info = webauth.ISessionInfo(request.getSession())
+    if info.user_id is None:
+        log.msg("Not authorized; redirecting ...")
+        request.redirect("/login")
+        return False
+    else:
+        return True
 
 def get_avatar(request):
     """
@@ -71,9 +68,17 @@ class WebResources(object):
         log.msg("static_path: {}".format(static_path))
         return File(static_path)
 
+    @app.route('/action', methods=['POST'])
+    def action(self, request):
+        if not check_authenticated(request):
+            return
+        avatar = get_avatar(request)
+        avatar.handle_input(int(request.args.get('command')[0]));
+
     @app.route('/lobby')
-    @webauthn
     def lobby(self, request):
+        if not check_authenticated(request):
+            return
         return textwrap.dedent("""\
             <!DOCTYPE html>
             <html>
@@ -127,18 +132,24 @@ class WebResources(object):
     @app.route('/lobby/status')
     def lobby_status(self, request):
         log.msg("routed to /lobby/status")
+        if not check_authenticated(request):
+            return
         avatar = get_avatar(request)
         avatar.request_update_from_app('status')
 
     @app.route('/lobby/actions')
     def lobby_actions(self, request):
         log.msg("routed to /lobby/actions")
+        if not check_authenticated(request):
+            return
         avatar = get_avatar(request)
         avatar.request_update_from_app('actions')
 
     @app.route('/subscribe')
     def subscribe(self, request):
         log.msg("routed to /subscribe")
+        if not check_authenticated(request):
+            return
         avatar = get_avatar(request)
         avatar.connect_event_source(request)
         d = defer.Deferred()

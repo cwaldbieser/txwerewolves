@@ -152,6 +152,12 @@ class WebAvatar(object):
         """
         self.application.request_update(key)
 
+    def handle_input(self, command):
+        """
+        Part of Avatar interface.
+        """
+        self.application.handle_input(command)
+
 @implementer(IRealm)
 class WebRealm(object):
     reactor = None

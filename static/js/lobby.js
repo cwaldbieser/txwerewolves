@@ -25,6 +25,10 @@ $(document).ready(function() {
                     .addClass("list-group-item-action")
                     .text(desc)
                     .data("command-value", value)
+                    .click(function(e){
+                        e.preventDefault();
+                        $.post("./action", {'command': $(this).data("command-value")})
+                    })
                     .appendTo($("#actions"));
             }
         }
