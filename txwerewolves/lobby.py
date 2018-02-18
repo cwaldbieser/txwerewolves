@@ -773,16 +773,18 @@ class WebLobbyProtocol(object):
     def handle_accepted(self):
         my_entry = users.get_user_entry(self.user_id)
         self.status = "Joined session '{}'".format(my_entry.joined_id)
-        self.instructions = textwrap.dedent("""\
-        Valid commands are:
-        * (j)oined                    - List players that have joined the session.
-        * (c)ancel                    - Leave the session.
-        """)
-        self.commands = {
-            'j': self._show_joined,
-            'c': self._leave_session,
+        self._update_client_status()
+        actions = [
+            ('Joined', 'List players that have joined the session.', 0),
+            ('Cancel', 'Leave the session.', 1),
+        
+        ]
+        self.actions = actions
+        self._update_client_actions()
+        self.handlers = {
+            0: self._show_joined,
+            1: self._leave_session,
         }
-        self.update_display()
 
     def _update_client_status(self):
         avatar = self.avatar
@@ -851,8 +853,8 @@ class WebLobbyProtocol(object):
         lines.append("The following players have joined the session:")
         for n, player in enumerate(members): 
             lines.append("{}) {}".format(n + 1, player))
-        self.output.append('\n'.join(lines))
-        self.update_display()
+        msg = '\n'.join(lines)
+        self._send_output_to_client(msg)
 
     def _accept_invitation(self):
         user_id = self.user_id
