@@ -133,6 +133,24 @@ class WebAvatar(object):
         event_source.write('\r\n')
         log.msg("Wrote event end.")
 
+    def send_message(self, msg):
+        """
+        Avatar interface.
+        Display a message to the client connecting to
+        this avatar.
+        """
+        command = {'output': msg}
+        command_str = json.dumps(command)
+        self.send_event_to_client(command_str)
+
+    def send_app_signal(self, signal):
+        """
+        Avatar interface.
+        Send a signal to the application protocol.
+        """
+        app_protocol = self.application
+        app_protocol.receive_signal(signal) 
+
     def shut_down(self):
         """
         Part of avatar interface.

@@ -233,6 +233,14 @@ class SSHLobbyProtocol(TerminalApplication):
         lobby_machine.initialize()
         return lobby
 
+    @property
+    def appstate(self):
+        """
+        Application interface.
+        Return the machine that drives the application.
+        """
+        return self.lobby
+
     def handle_input(self, key_id, modifiers):
         """
         Parse user input and act on commands.
@@ -251,6 +259,17 @@ class SSHLobbyProtocol(TerminalApplication):
                 return
             func()
         self.update_display()
+
+    def receive_signal(self, signal):
+        """
+        App interface.
+        """
+        log.msg("App for '{}' received signal: {}".format(self.user_id, signal))
+        sig_name, value = signal
+        if sig_name == 'invite-cancelled':
+            self.pending_invitations.discard(value)
+            return
+        raise Exception("Unknown signal: {}".format(signal))
 
     def update_display(self):
         """
@@ -574,9 +593,8 @@ class SSHLobbyProtocol(TerminalApplication):
         msg = "{} joined session {}.".format(user_id, session_id)
         for player in members:
             user_entry = users.get_user_entry(player)
-            app_protocol = user_entry.app_protocol
-            app_protocol.output.append(msg)    
-            app_protocol.update_display()
+            avatar = user_entry.avatar
+            avatar.send_message(msg)    
 
     def _reject_invitation(self):
         user_id = self.user_id
@@ -587,9 +605,9 @@ class SSHLobbyProtocol(TerminalApplication):
         session_entry = session.get_entry(session_id)
         owner = session_entry.owner
         owner_entry = users.get_user_entry(owner)
-        owner_lobby = owner_entry.app_protocol
-        owner_lobby.output.append("{} rejected your invitation.".format(user_id))
-        owner_lobby.update_display() 
+        owner_avatar = owner_entry.avatar
+        owner_avatar.send_app_signal(('invite-cancelled', user_id))
+        owner_avatar.send_message("{} rejected your invitation.".format(user_id))
 
     def _leave_session(self):
         user_id = self.user_id
@@ -604,9 +622,8 @@ class SSHLobbyProtocol(TerminalApplication):
         msg = "{} left session {}.".format(user_id, session_id)
         for player in members:
             user_entry = users.get_user_entry(player)
-            app_protocol = user_entry.app_protocol
-            app_protocol.output.append(msg)    
-            app_protocol.update_display()
+            avatar = user_entry.avatar
+            avatar.send_message(msg)
 
     def _start_session(self):
         user_id = self.user_id
@@ -637,13 +654,17 @@ class SSHLobbyProtocol(TerminalApplication):
             entry = users.get_user_entry(member)
             entry.joined_id = None
             entry.invited_id = None
-            entry.app_protocol.output.append(msg)
-            entry.app_protocol.lobby.cancel()
+            entry.avatar.send_message(msg)
+            entry.app_protocol.appstate.cancel()
         pending_invitations = self.pending_invitations
+        log.msg("User '{}' revoking outstanding invitations ...".format(user_id))
         for player in pending_invitations:
             entry = users.get_user_entry(player)
-            entry.app_protocol.output.append(msg)
-            entry.app_protocol.lobby.revoke_invitation()
+            entry.joined_id = None
+            entry.invited_id = None
+            entry.avatar.send_message(msg)
+            log.msg("Revoking from '{}' ...".format(entry.user_id))
+            entry.app_protocol.appstate.revoke_invitation()
             
     def signal_shutdown(self):
         """
@@ -661,12 +682,6 @@ class WebLobbyProtocol(object):
     reactor = None
     user_id = None
     status = ""
-
-    @property
-    def avatar(self):
-        user_id = self.user_id
-        entry = users.get_user_entry(user_id)
-        return entry.avatar
 
     @classmethod
     def make_instance(klass, reactor, user_id, parent):
@@ -691,6 +706,20 @@ class WebLobbyProtocol(object):
         lobby_machine.initialize()
         return lobby
 
+    @property
+    def avatar(self):
+        user_id = self.user_id
+        entry = users.get_user_entry(user_id)
+        return entry.avatar
+
+    @property
+    def appstate(self):
+        """
+        Application interface.
+        Return the machine that drives the application.
+        """
+        return self.lobby
+
     def handle_input(self, command):
         """
         Parse user input and act on commands.
@@ -698,6 +727,17 @@ class WebLobbyProtocol(object):
         handlers = self.handlers
         f = handlers[command]
         f()  
+
+    def receive_signal(self, signal):
+        """
+        App interface.
+        """
+        log.msg("App for '{}' received signal: {}".format(self.user_id, signal))
+        sig_name, value = signal
+        if sig_name == 'invite-cancelled':
+            self.pending_invitations.discard(value)
+            return
+        raise Exception("Unknown signal: {}".format(signal))
 
     def request_update(self, key):
         """
@@ -727,22 +767,24 @@ class WebLobbyProtocol(object):
     def handle_waiting_for_accepts(self):
         user_id = self.user_id
         user_entry = users.get_user_entry(user_id)
+        avatar = self.avatar
         self.status = "Session {} - Waiting for Responses".format(
                 user_entry.joined_id)
-        self.instructions = textwrap.dedent("""\
-        Valid commands are:
-        * (s)tart                     - Start the session with the current members.
-        * (i)nvite                    - Invite another player.
-        * (j)oined                    - Show players that have joined the session.
-        * (c)ancel                    - Cancel the session.
-        """)
-        self.commands = {
-            's': self._start_session,
-            'i': self._invite,
-            'j': self._show_joined,
-            'c': self._cancel_session,
+        self._update_client_status()
+        actions = [
+            ('Start', 'Start the session with the current members.', 0),
+            ('Invite', 'Invite another player', 1),
+            ('Joined', 'Show players that have joined the session.', 2),
+            ('Cancel', 'Cancel the session.', 3),
+        ]
+        self.actions = actions
+        self._update_client_actions()
+        self.handlers = {
+            0 : self._start_session,
+            1 : self._invite,
+            2 : self._show_joined,
+            3 : self._cancel_session,
         }
-        self.update_display()
     
     def handle_session_started(self):
         proto = SSHGameProtocol.make_protocol(
@@ -888,9 +930,9 @@ class WebLobbyProtocol(object):
         session_entry = session.get_entry(session_id)
         owner = session_entry.owner
         owner_entry = users.get_user_entry(owner)
-        owner_lobby = owner_entry.app_protocol
-        owner_lobby.output.append("{} rejected your invitation.".format(user_id))
-        owner_lobby.update_display() 
+        owner_avatar = owner_entry.avatar
+        owner_avatar.send_app_signal(('invite-cancelled', user_id))
+        owner_avatar.send_message("{} rejected your invitation.".format(user_id))
 
     def _leave_session(self):
         user_id = self.user_id
@@ -905,9 +947,8 @@ class WebLobbyProtocol(object):
         msg = "{} left session {}.".format(user_id, session_id)
         for player in members:
             user_entry = users.get_user_entry(player)
-            app_protocol = user_entry.app_protocol
-            app_protocol.output.append(msg)    
-            app_protocol.update_display()
+            avatar = user_entry.avatar
+            avatar.send_message(msg)
 
     def _start_session(self):
         user_id = self.user_id
@@ -943,6 +984,8 @@ class WebLobbyProtocol(object):
         pending_invitations = self.pending_invitations
         for player in pending_invitations:
             entry = users.get_user_entry(player)
+            entry.joined_id = None
+            entry.invited_id = None
             entry.app_protocol.output.append(msg)
             entry.app_protocol.lobby.revoke_invitation()
             

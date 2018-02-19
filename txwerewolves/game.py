@@ -257,6 +257,14 @@ class SSHGameProtocol(TerminalApplication):
         instance.input_buf = []
         return instance
 
+    @property
+    def appstate(self):
+        """
+        Application interface.
+        Return the machine that drives the application.
+        """
+        return self.game
+
     def handle_input(self, key_id, modifier):
         """
         Handle user input.

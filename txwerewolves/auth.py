@@ -92,6 +92,15 @@ class SSHAvatar(ConchUser):
         term_protocol = self.ssh_protocol.terminalProtocol
         app_protocol = term_protocol.app_protocol
         app_protocol.output.append(msg)
+        app_protocol.update_display()
+
+    def send_app_signal(self, signal):
+        """
+        Avatar interface.
+        Send a signal to the application protocol.
+        """
+        app_protocol = self.ssh_protocol.terminalProtocol.app_protocol
+        app_protocol.receive_signal(signal) 
 
     def shut_down(self):
         """
