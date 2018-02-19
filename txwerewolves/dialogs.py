@@ -804,6 +804,8 @@ class ChoosePlayerDialog(TermDialog):
         func = dialog_commands.get(key_id, None)
         if func is not None:
             func()
+            return True
+        return False
 
     def _cycle_players_up(self):
         players = self.players
