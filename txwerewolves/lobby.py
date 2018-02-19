@@ -862,24 +862,24 @@ class WebLobbyProtocol(object):
         """
         this_player = self.user_id
         my_entry = users.get_user_entry(this_player)
+        my_avatar = my_entry.avatar
         fltr = lambda e: (e.invited_id is None) and (e.joined_id is None)
         players = set([e.user_id for e in users.generate_user_entries(fltr=fltr)])
         players.discard(this_player)
         if len(players) == 0:
-            self.output.append("No other players to invite at this time.")
-            self.update_display()
+            my_avatar.send_message("No other players to invite at this time.")
             return
         players = list(players)
         players.sort()
-        user_entry = users.get_user_entry(this_player)
         if my_entry.joined_id is None:
             session_entry = session.create_session()
-            user_entry.joined_id = session_entry.session_id
+            my_entry.joined_id = session_entry.session_id
             session_entry.owner = this_player
             session_entry.members.add(this_player)
             self.lobby.create_session()
-        dialog = ChoosePlayerDialog.make_dialog(players)
-        self.install_dialog(dialog)
+        command = { 'show-dialog': None }
+        command_str = json.dumps(command)
+        my_avatar.send_event_to_client(command_str)
 
     def _show_joined(self):
         """

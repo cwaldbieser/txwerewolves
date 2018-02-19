@@ -40,6 +40,16 @@ $(document).ready(function() {
                 .html(message)
                 .prependTo($("#output"));
         }
+        if('show-dialog' in o)
+        {
+            $("#dialog-collapse").collapse('show');
+            $("#actions-collapse").collapse('hide');
+        }
+        if('hide-dialog' in o)
+        {
+            $("#dialog-collapse").collapse('hide');
+            $("#actions-collapse").collapse('show');
+        }
         //var li = $("<li>")
         //    .text(event.data)
         //    .appendTo($("#output"));

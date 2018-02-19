@@ -107,12 +107,27 @@ class WebResources(object):
                             </div>
                         </div>
 
-                        <div class="card">
-                            <div class="card-header">
-                                Actions 
+                        <div id="dialog-collapse" class="collapse">
+                            <div class="card">
+                                <div id="dialog-title" class="card-header">
+                                    Dialog Title 
+                                </div>
+                                <div class="card-body">
+                                    <div id="dialog_body">
+                                        Initializing ...
+                                    </div>
+                                </div>
                             </div>
-                            <div class="card-body">
-                                <div id="actions" class="list-group-item list-group-item-action">
+                        </div>
+
+                        <div id="actions-collapse" class="collapse show">
+                            <div class="card">
+                                <div class="card-header">
+                                    Actions 
+                                </div>
+                                <div class="card-body">
+                                    <div id="actions" class="list-group-item list-group-item-action">
+                                    </div>
                                 </div>
                             </div>
                         </div>
