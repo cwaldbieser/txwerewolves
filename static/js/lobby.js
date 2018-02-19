@@ -42,6 +42,12 @@ $(document).ready(function() {
         }
         if('show-dialog' in o)
         {
+            var info = o['show-dialog'];
+            var dlg_type = info['dialog-type'];
+            if (dlg_type == 'choose-players')
+            {
+                create_choose_players_dialog(info);
+            }
             $("#dialog-collapse").collapse('show');
             $("#actions-collapse").collapse('hide');
         }
@@ -59,3 +65,30 @@ $(document).ready(function() {
     $.get("./lobby/actions");
 });
 
+function create_choose_players_dialog(info)
+{
+    var actions = info['actions'];
+    //id=dialog_body
+    var dialog_body = $("#dialog_body")
+        .addClass("list-group-item")
+        .addClass("list-group-item-action")
+        .empty()
+    ;
+    $.each(actions, function(i, action){
+        var player = action[0];
+        var value = action[1];
+        var a = $("<a>")
+            .attr("href", "#")
+            .addClass("list-group-item")
+            .addClass("list-group-item-action")
+            .text(player)
+            .data("command-value", value)
+            .click(function(e){
+                e.preventDefault();
+                $.post("./action", {'command': $(this).data("command-value")})
+            })
+            .appendTo(dialog_body)
+        ;
+    })
+    ; 
+}

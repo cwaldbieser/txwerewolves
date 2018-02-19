@@ -675,6 +675,7 @@ class SSHLobbyProtocol(TerminalApplication):
 
 class WebLobbyProtocol(object):
     actions = None
+    dialog_handlers = None
     handlers = None
     lobby = None
     parent = None
@@ -724,6 +725,12 @@ class WebLobbyProtocol(object):
         """
         Parse user input and act on commands.
         """
+        dialog_handlers = self.dialog_handlers
+        if not dialog_handlers is None:
+            f = dialog_handlers.get(command, None)
+            if not f is None:
+                f()
+                return
         handlers = self.handlers
         f = handlers[command]
         f()  
@@ -877,9 +884,52 @@ class WebLobbyProtocol(object):
             session_entry.owner = this_player
             session_entry.members.add(this_player)
             self.lobby.create_session()
-        command = { 'show-dialog': None }
+        actions = [(player, n) for n, player in enumerate(players)]
+        dialog_handlers = {}
+        actions = []
+
+        def _make_handler(player):
+
+            def _invite():
+                self._send_invite(player)
+
+            return _invite
+
+        for n, player in enumerate(players):
+            actions.append((player, n))
+            dialog_handlers[n] = _make_handler(player)
+        quit_action = len(actions)
+        actions.append(("Stop inviting players", quit_action))
+        dialog_handlers[quit_action] = self._uninstall_dialog()
+        self.dialog_handlers = dialog_handlers
+        command = {
+            'show-dialog': {
+                'dialog-type': 'choose-players',
+                'actions': actions,
+            }
+        }
         command_str = json.dumps(command)
         my_avatar.send_event_to_client(command_str)
+
+    def _send_invite(self, player):
+        my_avatar = self.avatar
+        my_entry = users.get_user_entry(self.user_id)
+        other_entry = users.get_user_entry(player)
+        other_avatar = other_entry.avatar
+        if other_entry.invited_id is not None:
+            my_avatar.send_message("'{}' has already been invited to a session.".format(player))
+            self._uninstall_dialog()
+            return
+        if other_entry.joined_id is not None:
+            my_avatar.send_message("'{}' has already joined a session.".format(player))
+            self._uninstall_dialog()
+            return
+        other_entry.invited_id = my_entry.joined_id
+        other_entry.app_protocol.appstate.receive_invitation()
+        my_avatar.send_message("Sent invite to '{}'.".format(player))
+        self.lobby.send_invitation()
+        self.pending_invitations.add(player)
+        self._uninstall_dialog()
 
     def _show_joined(self):
         """
@@ -979,15 +1029,21 @@ class WebLobbyProtocol(object):
             entry = users.get_user_entry(member)
             entry.joined_id = None
             entry.invited_id = None
-            entry.app_protocol.output.append(msg)
+            entry.avatar.send_message(msg)
             entry.app_protocol.lobby.cancel()
         pending_invitations = self.pending_invitations
         for player in pending_invitations:
             entry = users.get_user_entry(player)
             entry.joined_id = None
             entry.invited_id = None
-            entry.app_protocol.output.append(msg)
+            entry.avatar.send_message(msg)
             entry.app_protocol.lobby.revoke_invitation()
+
+    def _uninstall_dialog(self):
+        self.dialog_handlers = None
+        command = { 'hide-dialog': "" }
+        command_str = json.dumps(command)
+        self.avatar.send_event_to_client(command_str)
             
     def signal_shutdown(self):
         """
