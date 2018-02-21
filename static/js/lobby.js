@@ -56,6 +56,14 @@ $(document).ready(function() {
             $("#dialog-collapse").collapse('hide');
             $("#actions-collapse").collapse('show');
         }
+        if('install-app' in o)
+        {
+            var resource = o['install-app'];
+            var pathname = window.location.pathname;
+            var new_pathname = pathname.substr(0, pathname.lastIndexOf('/')) + resource;
+            console.log(new_pathname);
+            window.location.replace(new_pathname);
+        }
         //var li = $("<li>")
         //    .text(event.data)
         //    .appendTo($("#output"));

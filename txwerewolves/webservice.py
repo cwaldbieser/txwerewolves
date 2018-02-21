@@ -75,6 +75,21 @@ class WebResources(object):
         avatar = get_avatar(request)
         avatar.handle_input(int(request.args.get('command')[0]));
 
+    @app.route('/werewolves')
+    def werewolves(self, request):
+        if not check_authenticated(request):
+            return
+        return textwrap.dedent("""\
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>Werewolves!</title>
+                </head>
+                <body>
+                    <h1>Werewolves!</h1>
+                </body>
+            </html>
+            """)
     @app.route('/lobby')
     def lobby(self, request):
         if not check_authenticated(request):

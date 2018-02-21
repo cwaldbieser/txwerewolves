@@ -89,6 +89,14 @@ class WebAvatar(object):
         app_protocol = user_entry.app_protocol
         return app_protocol
 
+    def install_application(self, app_protocol):
+        log.msg("install_application(): {}".format(app_protocol))
+        entry = users.get_user_entry(self.user_id)
+        entry.app_protocol = app_protocol
+        data = {'install-app': app_protocol.resource}
+        command_str = json.dumps(data)
+        self.send_event_to_client(command_str)
+        
     def init_app_protocol(self):
         user_id = self.user_id
         user_entry = users.get_user_entry(user_id)

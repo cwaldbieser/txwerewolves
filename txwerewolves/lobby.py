@@ -25,7 +25,10 @@ from txwerewolves.dialogs import (
     ChatDialog,
     ChoosePlayerDialog, 
 )
-from txwerewolves.game import SSHGameProtocol
+from txwerewolves.game import (
+    SSHGameProtocol,
+    WebGameProtocol,
+)
 from txwerewolves import graphics_chars as gchars
 
 
@@ -794,13 +797,12 @@ class WebLobbyProtocol(object):
         }
     
     def handle_session_started(self):
-        proto = SSHGameProtocol.make_protocol(
+        proto = WebGameProtocol.make_protocol(
             user_id=self.user_id,
-            terminal=self.terminal,
-            term_size=self.term_size,
             parent=self.parent,
             reactor=self.reactor)
-        self.parent().install_application(proto)
+        avatar = self.avatar
+        avatar.install_application(proto)
 
     def handle_invited(self):
         user_entry = users.get_user_entry(self.user_id)
