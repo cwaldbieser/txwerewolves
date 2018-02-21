@@ -969,9 +969,8 @@ class WebLobbyProtocol(object):
         msg = "{} joined session {}.".format(user_id, session_id)
         for player in members:
             user_entry = users.get_user_entry(player)
-            app_protocol = user_entry.app_protocol
-            app_protocol.output.append(msg)    
-            app_protocol.update_display()
+            avatar = user_entry.avatar
+            avatar.send_message(msg)
 
     def _reject_invitation(self):
         user_id = self.user_id
