@@ -25,6 +25,7 @@ from twisted.web.static import File
 import werkzeug
 
 static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+html_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "src/html")
 
 def check_authenticated(request):
     info = webauth.ISessionInfo(request.getSession())
@@ -50,13 +51,26 @@ class WebResources(object):
     app = Klein()
     reactor = None
     portal = None
+    _html_files = None
 
     @classmethod
     def make_instance(klass, reactor, portal):
         instance = klass()
         instance.reactor = reactor
         instance.portal = portal
+        instance._html_files = {}
+        html_keys = ['login', 'lobby']
+        for key in html_keys:
+            instance._load_html(key)
         return instance
+
+    def _load_html(self, html_key):
+        global html_dir
+        html_fname = "{}.html".format(html_key)
+        path = os.path.join(html_dir, html_fname)
+        with open(path, "r") as f:
+            page = f.read()
+        self._html_files[html_key] = page
 
     @app.route('/')
     def home(self, request):
@@ -94,81 +108,7 @@ class WebResources(object):
     def lobby(self, request):
         if not check_authenticated(request):
             return
-        return textwrap.dedent("""\
-            <!DOCTYPE html>
-            <html>
-                <head>
-                    <title>The Lobby</title>
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
-                    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-                    </head>
-                    <body>
-                        <h1>The Lobby</h1>
-                    <!--
-                    <ul id="output">
-                    </ul>
-                    -->
-                    <div class="container-fluid">
-                        <div class="card">
-                            <div class="card-header">
-                                Status
-                            </div>
-                            <div class="card-body">
-                                <div id="session_status">
-                                    Initializing ...
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="dialog-collapse" class="collapse">
-                            <div class="card">
-                                <div id="dialog-title" class="card-header">
-                                    Dialog Title 
-                                </div>
-                                <div class="card-body">
-                                    <div id="dialog_body">
-                                        Initializing ...
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="actions-collapse" class="collapse show">
-                            <div class="card">
-                                <div class="card-header">
-                                    Actions 
-                                </div>
-                                <div class="card-body">
-                                    <div id="actions" class="list-group-item list-group-item-action">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card">
-                            <div class="card-header">
-                                Output 
-                            </div>
-                            <div class="card-body">
-                                <ul id="output" class="list-group">
-                                </ul>
-                            </div>
-                        </div>
-
-                    </div>
-                    <script
-                        src="https://code.jquery.com/jquery-3.3.1.min.js"
-                        integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
-                        crossorigin="anonymous">
-                    </script>
-                    <script type="text/javascript" src="/static/js/lobby.js"></script>
-                    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-                    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
-                </body>
-            </html>
-            """)
+        return self._html_files['lobby']
 
     @app.route('/lobby/status')
     def lobby_status(self, request):
@@ -206,20 +146,7 @@ class WebResources(object):
 
     def _get_login(self, request):
         log.msg("request: {}".format(request.__class__))
-        return textwrap.dedent("""\
-        <!DOCTYPE html>
-        <html>
-        <head><title>Login</title></head>
-        <body>
-            <form method="POST" action="/login" accept-charset="utf-8">
-                <label for="user_id">User ID:</label>
-                <input id="user_id" name="name" type="text" maxchars="20">
-                <br>
-                <button type="submit">Submit</button>
-            </form>
-        </bodY>
-        </html>
-        """)
+        return self._html_files['login']
 
     def _post_login(self, request):
         portal = self.portal

@@ -751,7 +751,7 @@ class WebLobbyProtocol(object):
 
     def request_update(self, key):
         """
-        Part of application interface.
+        Part of web application interface.
         Update the client based on the key provided.
         """
         if key == 'status':
