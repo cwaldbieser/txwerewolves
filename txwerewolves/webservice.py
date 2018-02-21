@@ -59,7 +59,7 @@ class WebResources(object):
         instance.reactor = reactor
         instance.portal = portal
         instance._html_files = {}
-        html_keys = ['login', 'lobby']
+        html_keys = ['login', 'lobby', 'werewolves']
         for key in html_keys:
             instance._load_html(key)
         return instance
@@ -93,17 +93,8 @@ class WebResources(object):
     def werewolves(self, request):
         if not check_authenticated(request):
             return
-        return textwrap.dedent("""\
-            <!DOCTYPE html>
-            <html>
-                <head>
-                    <title>Werewolves!</title>
-                </head>
-                <body>
-                    <h1>Werewolves!</h1>
-                </body>
-            </html>
-            """)
+        return self._html_files['werewolves']
+
     @app.route('/lobby')
     def lobby(self, request):
         if not check_authenticated(request):
