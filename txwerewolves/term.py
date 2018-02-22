@@ -6,6 +6,7 @@ from __future__ import (
 import weakref
 from txwerewolves import (
     lobby,
+    session,
     users,
 )
 from twisted.conch.recvline import HistoricRecvLine
@@ -46,9 +47,21 @@ class TerminalAdapterProtocol(TerminalProtocol):
         if key_id == self.CTRL_D:
             self.terminal.loseConnection()
         elif key_id == self.CTRL_X:
-            self.reset_app_protocol()
+            self._shutdown_session()
         else:
             self.app_protocol.handle_input(key_id, modifier)
+
+    def _shutdown_session(self):
+        user_id = self.user_id
+        user_entry = users.get_user_entry(user_id)
+        session_id = user_entry.joined_id
+        if session_id is None:
+            return
+        signal = {
+            'name': 'shutdown',
+            'initiator': user_id,
+        }
+        session.send_signal_to_members(session_id, signal)
 
     def terminalSize(self, width, height):
         log.msg("width: {}, height: {}".format(width, height))
@@ -87,18 +100,6 @@ class TerminalAdapterProtocol(TerminalProtocol):
             app_protocol.update_display()
 
         self.reactor.callLater(0, _request_refresh, self.terminal, app_protocol)
-
-    def reset_app_protocol(self, **kwds):
-        """
-        Reset the application to a lobby.
-        Arguments in `kwds` are passed to the application's `signal_shutdown()` handler.
-        """
-        user_id = self.user_id
-        entry = users.get_user_entry(user_id)
-        app_protocol = entry.app_protocol
-        app_protocol.signal_shutdown(**kwds)
-        entry.app_protocol = None
-        self.init_app_protocol()
 
     def connectionLost(self, reason):
         pass

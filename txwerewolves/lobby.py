@@ -6,21 +6,18 @@ from __future__ import (
 )
 import collections
 import json
+import textwrap
 import weakref
 from txwerewolves import (
     session,
     users,
     utils,
 )
-import textwrap
-from automat import MethodicalMachine
-from twisted.conch.insults.text import (
-    attributes as A,
-    assembleFormattedText,
+from txwerewolves import graphics_chars as gchars
+from txwerewolves.apps import (
+    AppBase,
+    TerminalAppBase,
 )
-from twisted.internet import defer
-from twisted.python import log
-from txwerewolves.apps import TerminalApplication
 from txwerewolves.dialogs import (
     ChatDialog,
     ChoosePlayerDialog, 
@@ -29,7 +26,18 @@ from txwerewolves.game import (
     SSHGameProtocol,
     WebGameProtocol,
 )
-from txwerewolves import graphics_chars as gchars
+from txwerewolves.interfaces import (
+    ITerminalApplication,
+    IWebApplication,
+)
+from automat import MethodicalMachine
+from twisted.conch.insults.text import (
+    attributes as A,
+    assembleFormattedText,
+)
+from twisted.internet import defer
+from twisted.python import log
+from zope import interface
 
 
 class LobbyMachine(object):
@@ -201,7 +209,9 @@ class LobbyMachine(object):
     accepted.upon(cancel, enter=unjoined, outputs=[_enter_unjoined])
 
 
-class SSHLobbyProtocol(TerminalApplication):
+class SSHLobbyProtocol(TerminalAppBase):
+    interface.implements(ITerminalApplication)
+
     commands = None
     instructions = ""
     input_buf = None
@@ -676,7 +686,9 @@ class SSHLobbyProtocol(TerminalApplication):
         pass
 
 
-class WebLobbyProtocol(object):
+class WebLobbyProtocol(AppBase):
+    interface.implements(IWebApplication)
+
     actions = None
     dialog_handlers = None
     handlers = None
@@ -1045,11 +1057,5 @@ class WebLobbyProtocol(object):
         command = { 'hide-dialog': "" }
         command_str = json.dumps(command)
         self.avatar.send_event_to_client(command_str)
-            
-    def signal_shutdown(self):
-        """
-        Allow the app to shutdown gracefully.
-        """
-        pass
 
 

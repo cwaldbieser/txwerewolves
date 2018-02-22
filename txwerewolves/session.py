@@ -1,7 +1,9 @@
 
+from __future__ import absolute_import, division, print_function
 import collections
 import random
 import attr
+from txwerewolves import users
 
 _session_registry = {}
 _SESSION_TAGS = [
@@ -62,4 +64,17 @@ def destroy_entry(session_id):
     if session_id in _session_registry:
         del _session_registry[session_id]
     
+def send_signal_to_members(session_id, signal):
+    """
+    Send `signal` to the session members.
+    The signal will be propagated by member avatars
+    to their applications.
+    """
+    session_entry = get_entry(session_id)
+    members = list(session_entry.members)
+    for member in members:
+        entry = users.get_user_entry(member)
+        avatar = entry.avatar
+        avatar.send_app_signal(signal)
+
 

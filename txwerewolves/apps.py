@@ -5,17 +5,20 @@ from __future__ import (
     print_function,
 )
 import weakref
+from txwerewolves.interfaces import (
+    IApplication,
+    ITerminalApplication,
+)
+from txwerewolves import users
 
 
-class TerminalApplication(object):
+class AppBase(object):
     """
-    Base class for terminal application objects.
+    Base class for application objects.
     """
-    dialog = None
+    appstate = None
     parent = None
     reactor = None
-    term_size = (80, 24)
-    terminal = None
     user_id = None
 
     @property
@@ -24,21 +27,19 @@ class TerminalApplication(object):
         entry = users.get_user_entry(user_id)
         return entry.avatar
 
-    def handle_input(self, key_id, modifiers):
-        """
-        Handle terminal input.
-        """
-        raise NotImplementedError()
+    
+
+class TerminalAppBase(AppBase):
+    """
+    Base class for terminal application objects.
+    """
+    dialog = None
+    term_size = (80, 24)
+    terminal = None
 
     def install_dialog(self, dialog):
         dialog.parent = weakref.ref(self)
         self.dialog = dialog
-
-    def signal_shutdown(self, **kwds):
-        """
-        Allow the app to shutdown gracefully.
-        """
-        raise NotImplementedError() 
 
     def terminalSize(self, w, h):
         """
@@ -47,10 +48,4 @@ class TerminalApplication(object):
         self.terminal.reset()
         self.term_size = (w, h)
         self.update_display()
-
-    def update_display(self):
-        """
-        Update the terminal display.
-        """
-        raise NotImplementedError() 
 

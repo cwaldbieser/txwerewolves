@@ -47,6 +47,30 @@ class SSHAvatar(ConchUser):
         self.term_size = (80, 24)
         self.ssh_protocol = None
 
+    def closed(self):
+        pass
+
+    def execCommand(self, protocol, cmd):
+        raise NotImplementedError("Not implemented.")
+
+    def getPty(self, terminal, windowSize, attrs):
+        h, w, x, y = windowSize
+        self.term_size = (w, h)
+        self.terminal = terminal
+        return None
+
+    def install_application(self, app_protocol):
+        term_protocol = self.ssh_protocol.terminalProtocol
+        term_protocol.install_application(app_protocol) 
+
+    def init_app_protocol(self):
+        """
+        Avatar interface
+        Initialize default application.
+        """
+        term_protocol = self.ssh_protocol.terminalProtocol
+        term_protocol.init_app_protocol()
+
     def openShell(self, protocol):
         serverProto = ServerProtocol2(
             make_terminal_adapter, self.reactor, self.user_id)
@@ -58,30 +82,13 @@ class SSHAvatar(ConchUser):
         app_protocol.term_size = self.term_size
         app_protocol.update_display()
 
-    def set_term_adapter_term_size(self):
-        term_protocol = self.ssh_protocol.terminalProtocol
-        term_protocol.term_size = self.term_size 
-
-    def getPty(self, terminal, windowSize, attrs):
-        h, w, x, y = windowSize
-        self.term_size = (w, h)
-        self.terminal = terminal
-        return None
-
-    def execCommand(self, protocol, cmd):
-        raise NotImplementedError("Not implemented.")
-
-    def  windowChanged(self, newWindowSize):
-        h, w, x, y = newWindowSize
-        self.term_size = (w, h)
-        term_protocol = self.ssh_protocol.terminalProtocol
-        term_protocol.term_size = self.term_size
-        app_protocol = term_protocol.app_protocol
-        app_protocol.term_size = self.term_size
-        app_protocol.update_display()
-
-    def closed(self):
-        pass
+    def send_app_signal(self, signal):
+        """
+        Avatar interface.
+        Send a signal to the application protocol.
+        """
+        app_protocol = self.ssh_protocol.terminalProtocol.app_protocol
+        app_protocol.receive_signal(signal) 
 
     def send_message(self, msg):
         """
@@ -94,13 +101,9 @@ class SSHAvatar(ConchUser):
         app_protocol.output.append(msg)
         app_protocol.update_display()
 
-    def send_app_signal(self, signal):
-        """
-        Avatar interface.
-        Send a signal to the application protocol.
-        """
-        app_protocol = self.ssh_protocol.terminalProtocol.app_protocol
-        app_protocol.receive_signal(signal) 
+    def set_term_adapter_term_size(self):
+        term_protocol = self.ssh_protocol.terminalProtocol
+        term_protocol.term_size = self.term_size 
 
     def shut_down(self):
         """
@@ -111,6 +114,15 @@ class SSHAvatar(ConchUser):
         at the same state.
         """
         shut_down_avatar(self)
+
+    def  windowChanged(self, newWindowSize):
+        h, w, x, y = newWindowSize
+        self.term_size = (w, h)
+        term_protocol = self.ssh_protocol.terminalProtocol
+        term_protocol.term_size = self.term_size
+        app_protocol = term_protocol.app_protocol
+        app_protocol.term_size = self.term_size
+        app_protocol.update_display()
 
 
 class SSHRealm(object):

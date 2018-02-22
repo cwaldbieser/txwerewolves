@@ -637,7 +637,7 @@ class SystemMessageDialog(TermDialog):
     _lines = None
 
     @classmethod
-    def make_dialog(klass, parent, message, duration=-1, on_close=None):
+    def make_dialog(klass, message, duration=-1, on_close=None):
         instance = klass()
         instance.message = message
         instance.msg_duration = duration

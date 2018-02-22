@@ -11,6 +11,7 @@ from txwerewolves import (
     lobby,
     users,
 )
+from txwerewolves.interfaces import IAvatar
 import attr
 import six
 from twisted.cred.checkers import ICredentialsChecker
@@ -66,7 +67,7 @@ class WerewolfWebCredChecker(object):
         return defer.fail(UnauthorizedLogin())
                 
 
-@implementer(IWebUser)
+@implementer(IAvatar, IWebUser)
 class WebAvatar(object):
     user_id = None
     reactor = None
@@ -98,6 +99,9 @@ class WebAvatar(object):
         self.send_event_to_client(command_str)
         
     def init_app_protocol(self):
+        """
+        Initialize the default application.
+        """
         user_id = self.user_id
         user_entry = users.get_user_entry(user_id)
         user_entry.avatar = self
@@ -141,6 +145,14 @@ class WebAvatar(object):
         event_source.write('\r\n')
         log.msg("Wrote event end.")
 
+    def send_app_signal(self, signal):
+        """
+        Avatar interface.
+        Send a signal to the application protocol.
+        """
+        app_protocol = self.application
+        app_protocol.receive_signal(signal) 
+
     def send_message(self, msg):
         """
         Avatar interface.
@@ -150,14 +162,6 @@ class WebAvatar(object):
         command = {'output': msg}
         command_str = json.dumps(command)
         self.send_event_to_client(command_str)
-
-    def send_app_signal(self, signal):
-        """
-        Avatar interface.
-        Send a signal to the application protocol.
-        """
-        app_protocol = self.application
-        app_protocol.receive_signal(signal) 
 
     def shut_down(self):
         """
@@ -173,14 +177,13 @@ class WebAvatar(object):
 
     def request_update_from_app(self, key):
         """
-        Part of Avatar interface.
         Request a client update of a particular kind from the application.
         """
         self.application.request_update(key)
 
     def handle_input(self, command):
         """
-        Part of Avatar interface.
+        Handle client input. 
         """
         self.application.handle_input(command)
 

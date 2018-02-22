@@ -64,9 +64,6 @@ $(document).ready(function() {
             console.log(new_pathname);
             window.location.replace(new_pathname);
         }
-        //var li = $("<li>")
-        //    .text(event.data)
-        //    .appendTo($("#output"));
     };
 
     $.get("./lobby/status");

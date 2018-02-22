@@ -6,16 +6,15 @@ from __future__ import (
 )
 import collections
 import itertools
+import json
 import random
 import sys
 import textwrap
 import weakref
-import six
-from six.moves import (
-    zip,
+from txwerewolves.apps import (
+    AppBase,
+    TerminalAppBase,
 )
-from twisted.python import log
-from txwerewolves.apps import TerminalApplication
 from txwerewolves.dialogs import (
     BriefMessageDialog,
     ChatDialog,
@@ -24,6 +23,10 @@ from txwerewolves.dialogs import (
     SystemMessageDialog,
 )
 from txwerewolves import graphics_chars as gchars
+from txwerewolves.interfaces import (
+    ITerminalApplication,
+    IWebApplication,
+)
 from txwerewolves import (
     session,
     users,
@@ -33,10 +36,16 @@ from txwerewolves.utils import (
     peek_ahead
 )
 from txwerewolves.werewolf import WerewolfGame
+import six
+from six.moves import (
+    zip,
+)
+from twisted.python import log
 from twisted.conch.insults.text import (
     attributes as A,
     assembleFormattedText,
 )
+from zope import interface
 
 
 class HandledWerewolfGame(WerewolfGame):
@@ -215,7 +224,9 @@ class HandledWerewolfGame(WerewolfGame):
             
     
 
-class SSHGameProtocol(TerminalApplication):
+class SSHGameProtocol(TerminalAppBase):
+    interface.implements(ITerminalApplication)
+
     cards = None
     commands = None
     game = None
@@ -1177,7 +1188,34 @@ class SSHGameProtocol(TerminalApplication):
             dialog.brief_message = "Only the session administrator can modify game settings."
             self.install_dialog(dialog)
 
-    def signal_shutdown(self, signal=True, **kwds):
+    def receive_signal(self, signal):
+        signame = signal['name']
+        if signame == 'shutdown':
+            initiator = signal['initiator']
+            parent = self.parent()
+            entry = users.get_user_entry(self.user_id)
+            entry.app_protocol = None
+            if initiator == self.user_id:
+                self._shutdown()
+            else:
+                avatar = self.avatar
+
+                def _make_handler(avatar):
+
+                    def _handler():
+                        self._shutdown() 
+
+                    return _handler
+
+                user_id = self.user_id
+                msg = "{} has left the game.".format(initiator)
+                dialog = SystemMessageDialog.make_dialog(
+                    msg,
+                    on_close=_make_handler(avatar))
+                self.install_dialog(dialog)
+                self.update_display()
+
+    def _shutdown(self):
         """
         Allow the app to shutdown gracefully.
         """
@@ -1189,32 +1227,13 @@ class SSHGameProtocol(TerminalApplication):
         session_entry = session.get_entry(session_id)
         members = session_entry.members
         members.discard(user_id)
-        if not signal:
-            return
-        if self._shutting_down:
-            return
-        self._shutting_down = True
-        msg = "{} has left the game.".format(user_id)
-        for member in members:
-            user_entry = users.get_user_entry(member)
-            app_protocol = user_entry.app_protocol
-
-            def _make_handler(app_protocol):
-
-                def _handler():
-                    app_protocol.parent().reset_app_protocol(signal=False)
-
-                return _handler
-
-            dialog = SystemMessageDialog.make_dialog(
-                app_protocol,
-                msg,
-                on_close=_make_handler(app_protocol))
-            app_protocol.install_dialog(dialog)
-            app_protocol.update_display()
+        avatar = user_entry.avatar
+        avatar.init_app_protocol()
 
 
-class WebGameProtocol(object):
+class WebGameProtocol(AppBase):
+    interface.implements(IWebApplication)
+
     cards = None
     commands = None
     game = None
@@ -2179,7 +2198,13 @@ class WebGameProtocol(object):
             dialog.brief_message = "Only the session administrator can modify game settings."
             self.install_dialog(dialog)
 
-    def signal_shutdown(self, signal=True, **kwds):
+    def receive_signal(self, signal):
+        signame = signal['name']
+        if signame == 'shutdown':
+            initiator = signal['initiator']
+            self._shutdown(initiator)
+
+    def _shutdown(self, initiator):
         """
         Allow the app to shutdown gracefully.
         """
@@ -2191,26 +2216,14 @@ class WebGameProtocol(object):
         session_entry = session.get_entry(session_id)
         members = session_entry.members
         members.discard(user_id)
-        if not signal:
+        if user_id == initiator:
             return
-        if self._shutting_down:
-            return
-        self._shutting_down = True
-        msg = "{} has left the game.".format(user_id)
-        for member in members:
-            user_entry = users.get_user_entry(member)
-            app_protocol = user_entry.app_protocol
+        msg = "{} has left the game.".format(initiator)
+        payload = {}
+        if initiator != user_id:
+            payload['message'] = msg
+        event = { 'shutdown': payload } 
+        event_str = json.dumps(event)
+        avatar = user_entry.avatar
+        avatar.send_event_to_client(event_str)
 
-            def _make_handler(app_protocol):
-
-                def _handler():
-                    app_protocol.parent().reset_app_protocol(signal=False)
-
-                return _handler
-
-            dialog = SystemMessageDialog.make_dialog(
-                app_protocol,
-                msg,
-                on_close=_make_handler(app_protocol))
-            app_protocol.install_dialog(dialog)
-            app_protocol.update_display()
