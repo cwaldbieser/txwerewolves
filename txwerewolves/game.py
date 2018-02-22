@@ -1189,9 +1189,9 @@ class SSHGameProtocol(TerminalAppBase):
             self.install_dialog(dialog)
 
     def receive_signal(self, signal):
-        signame = signal['name']
+        signame, sigvalue = signal
         if signame == 'shutdown':
-            initiator = signal['initiator']
+            initiator = sigvalue['initiator']
             parent = self.parent()
             entry = users.get_user_entry(self.user_id)
             entry.app_protocol = None

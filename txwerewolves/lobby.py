@@ -282,7 +282,18 @@ class SSHLobbyProtocol(TerminalAppBase):
         if sig_name == 'invite-cancelled':
             self.pending_invitations.discard(value)
             return
+        if sig_name == 'chat-message':
+            self._handle_new_chat()
+            return
         raise Exception("Unknown signal: {}".format(signal))
+
+    def _handle_new_chat(self):
+        if not self.dialog is None:
+            self.dialog.draw()    
+        else:
+            self.new_chat_flag = True
+            self.update_display()
+        
 
     def update_display(self):
         """
@@ -759,8 +770,24 @@ class WebLobbyProtocol(AppBase):
         if sig_name == 'invite-cancelled':
             self.pending_invitations.discard(value)
             return
+        if sig_name == 'chat-message':
+            self._handle_new_chat()
+            return
         raise Exception("Unknown signal: {}".format(signal))
 
+    def _handle_new_chat(self):
+        user_entry = users.get_user_entry(self.user_id)
+        session_id = user_entry.joined_id
+        if session_id is None:
+            session_id = user_entry.invited_id
+        session_entry = session.get_entry(session_id)
+        output_buf = session_entry.chat_buf
+        sender, msg = output_buf[-1]
+        avatar = user_entry.avatar
+        event = {'chat': {'sender': sender, 'message': msg}}
+        event_str = json.dumps(event)
+        avatar.send_event_to_client(event_str)
+        
     def request_update(self, key):
         """
         Part of web application interface.

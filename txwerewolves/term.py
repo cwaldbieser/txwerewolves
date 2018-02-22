@@ -57,10 +57,7 @@ class TerminalAdapterProtocol(TerminalProtocol):
         session_id = user_entry.joined_id
         if session_id is None:
             return
-        signal = {
-            'name': 'shutdown',
-            'initiator': user_id,
-        }
+        signal = ('shutdown', {'initiator': user_id})
         session.send_signal_to_members(session_id, signal)
 
     def terminalSize(self, width, height):

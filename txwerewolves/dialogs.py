@@ -324,22 +324,11 @@ class ChatDialog(TermDialog):
         fltr = lambda x: x.invited_id == session_id
         invited_ids = [x.user_id for x in users.generate_user_entries(fltr)]
         members = members.union(invited_ids)
+        signal = ('chat-message', {'sender': self.user_id})
         for player in members:
             user_entry = users.get_user_entry(player)
-            app_protocol = user_entry.app_protocol
-            
-            def _make_redraw_dialog(app_protocol):
-            
-                def _redraw_dialog():
-                    if not app_protocol.dialog is None:
-                        app_protocol.dialog.draw()    
-                    else:
-                        app_protocol.new_chat_flag = True
-                        app_protocol.update_display()
-       
-                return _redraw_dialog
-
-            self.parent().reactor.callLater(0, _make_redraw_dialog(app_protocol))
+            avatar = user_entry.avatar
+            avatar.send_app_signal(signal)
  
 
 class SessionAdminDialog(TermDialog):

@@ -32,6 +32,22 @@ $(document).ready(function() {
                     .appendTo($("#actions"));
             }
         }
+        if('chat' in o)
+        {
+            var e = o['chat'];
+            var sender = e['sender'];
+            var message = e['message'];
+            var li = $("<li>");
+            var label = $("<label>")
+                .text(sender + ":")
+                .appendTo(li)
+            ;
+            var span = $("<span>")
+                .text(message)
+                .appendTo(li)
+            ;
+            li.prependTo($("#chat-output")); 
+        }
         if('output' in o)
         {
             var message = o['output'];
