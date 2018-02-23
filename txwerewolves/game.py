@@ -12,8 +12,8 @@ import sys
 import textwrap
 import weakref
 from txwerewolves.apps import (
-    AppBase,
     TerminalAppBase,
+    WebAppBase,
 )
 from txwerewolves.dialogs import (
     BriefMessageDialog,
@@ -166,12 +166,8 @@ class HandledWerewolfGame(WerewolfGame):
         Notify all connected players that a change in game state has occured
         and they should update their UIs.
         """
-        session_entry = session.get_entry(self.session_id)
-        members = session_entry.members
-        for player in members:
-            user_entry = users.get_user_entry(player)
-            app_protocol = user_entry.app_protocol
-            app_protocol.reactor.callLater(0, app_protocol.handle_next_phase)
+        signal = ('next-phase', None)
+        session.send_signal_to_members(self.session_id, signal)
 
     def set_wait_list(self):
         """
@@ -324,7 +320,7 @@ class SSHGameProtocol(TerminalAppBase):
         if not handled:
             terminal.cursorPosition(0, th - 1)
 
-    def handle_next_phase(self):
+    def _handle_next_phase(self):
         self._ready_to_advance = False
         self.update_display()
 
@@ -1190,30 +1186,35 @@ class SSHGameProtocol(TerminalAppBase):
 
     def receive_signal(self, signal):
         signame, sigvalue = signal
-        if signame == 'shutdown':
+        if signame == 'next-phase':
+            self._handle_next_phase() 
+        elif signame == 'shutdown':
             initiator = sigvalue['initiator']
-            parent = self.parent()
-            entry = users.get_user_entry(self.user_id)
-            entry.app_protocol = None
-            if initiator == self.user_id:
-                self._shutdown()
-            else:
-                avatar = self.avatar
+            self._start_shutdown(initiator)
 
-                def _make_handler(avatar):
+    def _start_shutdown(self, initiator):
+        parent = self.parent()
+        entry = users.get_user_entry(self.user_id)
+        entry.app_protocol = None
+        if initiator == self.user_id:
+            self._shutdown()
+        else:
+            avatar = self.avatar
 
-                    def _handler():
-                        self._shutdown() 
+            def _make_handler(avatar):
 
-                    return _handler
+                def _handler():
+                    self._shutdown() 
 
-                user_id = self.user_id
-                msg = "{} has left the game.".format(initiator)
-                dialog = SystemMessageDialog.make_dialog(
-                    msg,
-                    on_close=_make_handler(avatar))
-                self.install_dialog(dialog)
-                self.update_display()
+                return _handler
+
+            user_id = self.user_id
+            msg = "{} has left the game.".format(initiator)
+            dialog = SystemMessageDialog.make_dialog(
+                msg,
+                on_close=_make_handler(avatar))
+            self.install_dialog(dialog)
+            self.update_display()
 
     def _shutdown(self):
         """
@@ -1231,7 +1232,7 @@ class SSHGameProtocol(TerminalAppBase):
         avatar.init_app_protocol()
 
 
-class WebGameProtocol(AppBase):
+class WebGameProtocol(WebAppBase):
     interface.implements(IWebApplication)
 
     cards = None
@@ -1286,57 +1287,14 @@ class WebGameProtocol(AppBase):
         """
         return self.game
 
-    def handle_input(self, key_id, modifier):
+    def request_update(self, key):
         """
-        Handle user input.
-        """ 
-        handled = False
-        ORD_TAB = 9
-        ORD_CTRL_A = 1
-        dialog = self.dialog
-        if not handled and not dialog is None:
-            handled = dialog.handle_input(key_id, modifier)
-        if not handled and key_id == 'h':
-            self._show_help()
-            handled = True
-        if not handled and ord(key_id) == ORD_TAB:
-            self._show_chat()
-            handled = True
-        if not handled and ord(key_id) == ORD_CTRL_A:
-            self._show_session_admin()
-            handled = True
-        if not handled and not self.commands is None:
-            func = self.commands.get(key_id)
-            if func is None:
-                func = self.commands.get('*', None)
-            if not func is None:
-                func()
-        self.update_display() 
+        TODO:
+        """
+        pass
 
-    def update_display(self):
-        """
-        Update the display.
-        """
-        terminal = self.terminal
-        terminal.reset()
-        tw, th = self.term_size
-        self._draw_border()
-        self._draw_player_area()
-        self._draw_game_info_area()
-        self._draw_phase_area()
-        if not self.dialog is None:
-            self.dialog.draw()
-        dialog = self.dialog
-        if dialog is not None:
-            handled = dialog.set_cursor_pos()
-        else:
-            handled = False
-        if not handled:
-            terminal.cursorPosition(0, th - 1)
-
-    def handle_next_phase(self):
+    def _handle_next_phase(self):
         self._ready_to_advance = False
-        self.update_display()
 
     def _draw_border(self):
         """
@@ -2199,9 +2157,11 @@ class WebGameProtocol(AppBase):
             self.install_dialog(dialog)
 
     def receive_signal(self, signal):
-        signame = signal['name']
+        signame, value = signal
+        if signame == 'next-phase':
+            self._handle_next_phase()
         if signame == 'shutdown':
-            initiator = signal['initiator']
+            initiator = value['initiator']
             self._shutdown(initiator)
 
     def _shutdown(self, initiator):

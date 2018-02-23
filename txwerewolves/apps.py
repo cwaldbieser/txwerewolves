@@ -49,3 +49,24 @@ class TerminalAppBase(AppBase):
         self.term_size = (w, h)
         self.update_display()
 
+
+class WebAppBase(AppBase):
+    """
+    Mixin for web applications.
+    """
+    dialog_handlers = None
+
+    def handle_input(self, command):
+        """
+        Parse user input and act on commands.
+        """
+        dialog_handlers = self.dialog_handlers
+        if not dialog_handlers is None:
+            f = dialog_handlers.get(command, None)
+            if not f is None:
+                f()
+                return
+        handlers = self.handlers
+        f = handlers[command]
+        f()  
+

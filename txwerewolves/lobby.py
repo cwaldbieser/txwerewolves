@@ -15,8 +15,8 @@ from txwerewolves import (
 )
 from txwerewolves import graphics_chars as gchars
 from txwerewolves.apps import (
-    AppBase,
     TerminalAppBase,
+    WebAppBase,
 )
 from txwerewolves.dialogs import (
     ChatDialog,
@@ -699,11 +699,10 @@ class SSHLobbyProtocol(TerminalAppBase):
         pass
 
 
-class WebLobbyProtocol(AppBase):
+class WebLobbyProtocol(WebAppBase):
     interface.implements(IWebApplication)
 
     actions = None
-    dialog_handlers = None
     handlers = None
     lobby = None
     parent = None
@@ -736,32 +735,12 @@ class WebLobbyProtocol(AppBase):
         return lobby
 
     @property
-    def avatar(self):
-        user_id = self.user_id
-        entry = users.get_user_entry(user_id)
-        return entry.avatar
-
-    @property
     def appstate(self):
         """
         Application interface.
         Return the machine that drives the application.
         """
         return self.lobby
-
-    def handle_input(self, command):
-        """
-        Parse user input and act on commands.
-        """
-        dialog_handlers = self.dialog_handlers
-        if not dialog_handlers is None:
-            f = dialog_handlers.get(command, None)
-            if not f is None:
-                f()
-                return
-        handlers = self.handlers
-        f = handlers[command]
-        f()  
 
     def receive_signal(self, signal):
         """

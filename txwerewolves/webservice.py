@@ -115,6 +115,13 @@ class WebResources(object):
             return
         return self._html_files['werewolves']
 
+    @app.route('/werewolves/actions')
+    def werewolves_actions(self, request):
+        if not check_authenticated(request):
+            return
+        avatar = get_avatar(request)
+        avatar.request_update_from_app('actions')
+
     @app.route('/lobby')
     def lobby(self, request):
         if not check_authenticated(request):
