@@ -179,6 +179,12 @@ class WebResources(object):
         log.msg("Handle failure: {}".format(failure))
         request.redirect("/login")
 
+    @app.route("/logout")
+    def logout(self, request):
+        s = request.getSession()
+        s.expire()
+        request.redirect("/login")
+
     @app.handle_errors(werkzeug.exceptions.NotFound)
     def error_handler_404(self, request, failure):
         log.msg("http_status={status}, client_ip={client_ip}, path={path}".format(

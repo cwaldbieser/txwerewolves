@@ -171,9 +171,13 @@ class WebAvatar(object):
         A new avatar will be attached to the application
         at the same state.
         """
-        o = {'command': 'shut-down'}
+        o = {'shut-down': 'new avatar connected'}
         msg = json.dumps(o)
-        self.send_event_to_client(msg) 
+        try:
+            self.send_event_to_client(msg) 
+        except Exception as ex:
+            log.msg("Couldn't send shutdown message to client. {}".format(ex))
+        self._event_source = None
 
     def request_update_from_app(self, key):
         """

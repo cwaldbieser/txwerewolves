@@ -82,6 +82,13 @@ $(document).ready(function() {
             console.log(new_pathname);
             window.location.replace(new_pathname);
         }
+        if('shut-down' in o)
+        {
+            var pathname = window.location.pathname;
+            var new_pathname = pathname.substr(0, pathname.lastIndexOf('/')) + 'logout';
+            console.log(new_pathname);
+            window.location.replace(new_pathname);
+        }
     };
 
     $.get("./lobby/status");

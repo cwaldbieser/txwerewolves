@@ -477,6 +477,8 @@ class SSHLobbyProtocol(TerminalAppBase):
         dialog.draw()
 
     def handle_unjoined(self):
+        if not self.dialog is None:
+            self.dialog.uninstall_dialog()
         self.status = "You are not part of any session."
         self.instructions = textwrap.dedent("""\
         Valid commands are:
