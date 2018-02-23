@@ -38,8 +38,10 @@ $(document).ready(function() {
             var sender = e['sender'];
             var message = e['message'];
             var li = $("<li>");
-            var label = $("<label>")
-                .text(sender + ":")
+            var label = $("<span>")
+                .addClass("badge")
+                .addClass("badge-primary")
+                .text(sender + ": ")
                 .appendTo(li)
             ;
             var span = $("<span>")
@@ -84,12 +86,19 @@ $(document).ready(function() {
 
     $.get("./lobby/status");
     $.get("./lobby/actions");
+
+    $("#chat-send").click(function(e){
+        e.preventDefault();
+        var message = $("#chat-message").val();
+        $("#chat-message").val("");
+        $.post("./chat", {'message': message});
+    })
+    ;
 });
 
 function create_choose_players_dialog(info)
 {
     var actions = info['actions'];
-    //id=dialog_body
     var dialog_body = $("#dialog_body")
         .addClass("list-group-item")
         .addClass("list-group-item-action")

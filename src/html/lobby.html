@@ -39,7 +39,11 @@
                         Chat 
                     </div>
                     <div class="card-body">
-                        <ul id="chat-output" class="list-group" style="height: 4em; overflow-y: scroll;">
+                        <form class="form-inline">
+                            <input id="chat-message" name="chat-message" type="text" style="width:80%">
+                            <button id="chat-send" type="submit" class="btn btn-primary mb-2">Send</button>
+                        </form>
+                        <ul id="chat-output" class="list-group" style="height: 7em; overflow-y: scroll;">
                         </ul>
                     </div>
                 </div>

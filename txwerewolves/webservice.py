@@ -7,8 +7,11 @@ from __future__ import (
 import json
 import os
 import textwrap
-from txwerewolves import users
-from txwerewolves import webauth
+from txwerewolves import (
+    session,
+    users,
+    webauth,
+)
 from klein import Klein
 from six.moves import urllib
 from twisted.application.service import Service
@@ -88,6 +91,23 @@ class WebResources(object):
             return
         avatar = get_avatar(request)
         avatar.handle_input(int(request.args.get('command')[0]));
+
+    @app.route('/chat', methods=['POST'])
+    def chat(self, request):
+        if not check_authenticated(request):
+            return
+        avatar = get_avatar(request)
+        user_id = avatar.user_id
+        message = request.args.get('message')[0];
+        user_entry = users.get_user_entry(user_id)
+        session_id = user_entry.joined_id or user_entry.invited_id
+        if session_id is None:
+            return
+        session_entry = session.get_entry(session_id)
+        chat_buf = session_entry.chat_buf
+        chat_buf.append((user_id, message))
+        signal = ('chat-message', {'sender': user_id}) 
+        session.send_signal_to_members(session_id, signal, include_invited=True)
 
     @app.route('/werewolves')
     def werewolves(self, request):

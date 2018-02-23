@@ -64,14 +64,21 @@ def destroy_entry(session_id):
     if session_id in _session_registry:
         del _session_registry[session_id]
     
-def send_signal_to_members(session_id, signal):
+def send_signal_to_members(session_id, signal, include_invited=False, exclude=None):
     """
     Send `signal` to the session members.
     The signal will be propagated by member avatars
     to their applications.
     """
     session_entry = get_entry(session_id)
-    members = list(session_entry.members)
+    members = set(session_entry.members)
+    if include_invited:
+        fltr = lambda x: x.invited_id == session_id
+        invited_ids = [x.user_id for x in users.generate_user_entries(fltr)]
+        members = members.union(invited_ids)
+    if not exclude is None:
+        exclude_set = set(exclude)
+        members = members - exclude_set
     for member in members:
         entry = users.get_user_entry(member)
         avatar = entry.avatar
