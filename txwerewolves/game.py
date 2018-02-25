@@ -305,7 +305,6 @@ class SSHGameProtocol(TerminalAppBase):
         """
         Update the display.
         """
-        log.msg("SSHGameProtocol.update_display()")
         terminal = self.terminal
         terminal.reset()
         tw, th = self.term_size
@@ -329,7 +328,6 @@ class SSHGameProtocol(TerminalAppBase):
         terminal.cursorPosition(0, th - 1)
 
     def _handle_next_phase(self):
-        log.msg("Reset _ready_to_advance for {}".format(self.user_id))
         self._ready_to_advance = False
         self.update_display()
 
