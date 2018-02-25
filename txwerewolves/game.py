@@ -329,6 +329,7 @@ class SSHGameProtocol(TerminalAppBase):
         terminal.cursorPosition(0, th - 1)
 
     def _handle_next_phase(self):
+        log.msg("Reset _ready_to_advance for {}".format(self.user_id))
         self._ready_to_advance = False
         self.update_display()
 
@@ -1162,8 +1163,9 @@ class SSHGameProtocol(TerminalAppBase):
         to the next phase.
         """
         user_id = self.user_id
-        self.game.signal_advance(user_id)
         self._ready_to_advance = True
+        self.game.signal_advance(user_id)
+        self.update_display()
 
     def _show_help(self):
         dialog = HelpDialog()
