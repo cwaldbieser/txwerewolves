@@ -82,9 +82,12 @@
                         Chat 
                     </div>
                     <div class="card-body">
-                        <div id="chat">
-                            Initializing ...
-                        </div>
+                        <form class="form-inline">
+                            <input id="chat-message" name="chat-message" type="text" style="width:80%">
+                            <button id="chat-send" type="submit" class="btn btn-primary mb-2">Send</button>
+                        </form>
+                        <ul id="chat-output" class="list-group" style="height: 7em; overflow-y: scroll;">
+                        </ul>
                     </div>
                 </div>
 
@@ -101,7 +104,7 @@
     </script>
     <script
         type="text/javascript"
-        src="/static/js/werewolf.js">
+        src="/static/js/werewolves.js">
     </script>
     <script
         src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"

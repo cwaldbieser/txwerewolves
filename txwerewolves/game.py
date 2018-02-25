@@ -2183,9 +2183,25 @@ class WebGameProtocol(WebAppBase):
         signame, value = signal
         if signame == 'next-phase':
             self._handle_next_phase()
-        if signame == 'shutdown':
+        elif signame == 'chat-message':
+            self._handle_new_chat()
+            return
+        elif signame == 'shutdown':
             initiator = value['initiator']
             self._shutdown(initiator)
+
+    def _handle_new_chat(self):
+        user_entry = users.get_user_entry(self.user_id)
+        session_id = user_entry.joined_id
+        if session_id is None:
+            session_id = user_entry.invited_id
+        session_entry = session.get_entry(session_id)
+        output_buf = session_entry.chat_buf
+        sender, msg = output_buf[-1]
+        avatar = user_entry.avatar
+        event = {'chat': {'sender': sender, 'message': msg}}
+        event_str = json.dumps(event)
+        avatar.send_event_to_client(event_str)
 
     def _shutdown(self, initiator):
         """
