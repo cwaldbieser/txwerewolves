@@ -40,6 +40,7 @@ class TerminalAppBase(AppBase):
     def install_dialog(self, dialog):
         dialog.parent = weakref.ref(self)
         self.dialog = dialog
+        dialog.draw()
 
     def terminalSize(self, w, h):
         """

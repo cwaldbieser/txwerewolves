@@ -271,7 +271,7 @@ class SSHLobbyProtocol(TerminalAppBase):
             if func is None:
                 return
             func()
-        self.update_display()
+            self.update_display()
 
     def receive_signal(self, signal):
         """
@@ -298,8 +298,6 @@ class SSHLobbyProtocol(TerminalAppBase):
         """
         Update the status and message area. 
         """
-        log.msg("Entered update_display() for {}".format(self.user_id))
-        log.msg("dialog is {}".format(self.dialog))
         terminal = self.terminal
         terminal.reset()
         tw, th = self.term_size

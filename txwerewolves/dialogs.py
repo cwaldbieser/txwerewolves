@@ -58,12 +58,6 @@ class TermDialog(object):
     def set_cursor_pos(self):
         return False
 
-    def uninstall_dialog(self):
-        self.cancel_redraw()
-        parent = self.parent()
-        parent.dialog = None
-        parent.update_display()
-
     @property
     def terminal(self):
         obj = self.parent()
@@ -79,6 +73,12 @@ class TermDialog(object):
             if hasattr(obj, 'term_size'):
                 return obj.term_size
             obj = obj.parent()
+
+    def uninstall_dialog(self):
+        self.cancel_redraw()
+        parent = self.parent()
+        parent.dialog = None
+        parent.update_display()
 
     @property
     def user_id(self):
@@ -166,6 +166,7 @@ class ChatDialog(TermDialog):
     input_buf = None
     output_buf = None
     pos = 0
+    _redraw_prompt = None
 
     @classmethod
     def make_instance(klass, input_buf, output_buf):
@@ -178,7 +179,6 @@ class ChatDialog(TermDialog):
         """
         Show chat window.
         """
-        log.msg("dialog.draw() called for {}".format(self.parent().user_id))
         self._compute_coords()
         self._draw_bg()
         self._draw_prompt()
@@ -234,6 +234,25 @@ class ChatDialog(TermDialog):
             row += 1
             if filled:
                 break
+
+    def schedule_redraw_prompt(self):
+        reactor = self.parent().reactor
+        if not self._redraw_prompt is None and self._redraw_prompt.active():
+            return
+
+        def _redraw():
+            self._compute_coords()
+            self._draw_prompt()
+            self._redraw_prompt = None
+
+        self._redraw_prompt = reactor.callLater(0, _redraw)
+
+    def cancel_redraw_prompt(self):
+        redraw_prompt = self._redraw_prompt
+        if redraw_prompt is None:
+            return
+        redraw_prompt.cancel()
+        self._redraw_prompt = None
 
     def _draw_bg(self):
         terminal = self.terminal
@@ -291,7 +310,7 @@ class ChatDialog(TermDialog):
         terminal = self.terminal
         terminal.cursorPosition(pos, 1)
         self.pos += 1
-        self.schedule_redraw()
+        self.schedule_redraw_prompt()
 
     def _arrow_left(self):
         pos = self.pos
@@ -346,6 +365,10 @@ class ChatDialog(TermDialog):
             return
         signal = ('chat-message', {'sender': self.user_id})
         session.send_signal_to_members(session_id, signal, include_invited=True, exclude=set([user_id]))
+
+    def uninstall_dialog(self):
+        self.cancel_redraw_prompt()
+        super(ChatDialog, self).uninstall_dialog()
  
 
 class SessionAdminDialog(TermDialog):
