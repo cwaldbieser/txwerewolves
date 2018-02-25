@@ -277,7 +277,6 @@ class SSHLobbyProtocol(TerminalAppBase):
         """
         App interface.
         """
-        log.msg("App for '{}' received signal: {}".format(self.user_id, signal))
         sig_name, value = signal
         if sig_name == 'invite-cancelled':
             self.pending_invitations.discard(value)
@@ -289,7 +288,7 @@ class SSHLobbyProtocol(TerminalAppBase):
 
     def _handle_new_chat(self):
         if not self.dialog is None:
-            self.dialog.draw()    
+            self.dialog.schedule_redraw()    
         else:
             self.new_chat_flag = True
             self.update_display()
@@ -299,6 +298,8 @@ class SSHLobbyProtocol(TerminalAppBase):
         """
         Update the status and message area. 
         """
+        log.msg("Entered update_display() for {}".format(self.user_id))
+        log.msg("dialog is {}".format(self.dialog))
         terminal = self.terminal
         terminal.reset()
         tw, th = self.term_size
@@ -474,7 +475,7 @@ class SSHLobbyProtocol(TerminalAppBase):
         dialog = self.dialog
         if self.dialog is None:
             return        
-        dialog.draw()
+        dialog.schedule_redraw()
 
     def handle_unjoined(self):
         if not self.dialog is None:
@@ -683,13 +684,11 @@ class SSHLobbyProtocol(TerminalAppBase):
             entry.avatar.send_message(msg)
             entry.app_protocol.appstate.cancel()
         pending_invitations = self.pending_invitations
-        log.msg("User '{}' revoking outstanding invitations ...".format(user_id))
         for player in pending_invitations:
             entry = users.get_user_entry(player)
             entry.joined_id = None
             entry.invited_id = None
             entry.avatar.send_message(msg)
-            log.msg("Revoking from '{}' ...".format(entry.user_id))
             entry.app_protocol.appstate.revoke_invitation()
             
     def signal_shutdown(self):
@@ -746,7 +745,6 @@ class WebLobbyProtocol(WebAppBase):
         """
         App interface.
         """
-        log.msg("App for '{}' received signal: {}".format(self.user_id, signal))
         sig_name, value = signal
         if sig_name == 'invite-cancelled':
             self.pending_invitations.discard(value)

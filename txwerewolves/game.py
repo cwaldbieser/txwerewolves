@@ -292,17 +292,20 @@ class SSHGameProtocol(TerminalAppBase):
             self._show_session_admin()
             handled = True
         if not handled and not self.commands is None:
-            func = self.commands.get(key_id)
+            commands = self.commands
+            func = commands.get(key_id)
             if func is None:
-                func = self.commands.get('*', None)
+                func = commands.get('*', None)
             if not func is None:
                 func()
-        self.update_display() 
+                self.update_display()
+        #self.update_display() 
 
     def update_display(self):
         """
         Update the display.
         """
+        log.msg("SSHGameProtocol.update_display()")
         terminal = self.terminal
         terminal.reset()
         tw, th = self.term_size
@@ -318,7 +321,12 @@ class SSHGameProtocol(TerminalAppBase):
         else:
             handled = False
         if not handled:
-            terminal.cursorPosition(0, th - 1)
+            self.set_cursor_end_pos()
+
+    def set_cursor_end_pos(self):
+        tw, th = self.term_size
+        terminal = self.terminal
+        terminal.cursorPosition(0, th - 1)
 
     def _handle_next_phase(self):
         self._ready_to_advance = False
@@ -1160,6 +1168,7 @@ class SSHGameProtocol(TerminalAppBase):
     def _show_help(self):
         dialog = HelpDialog()
         self.install_dialog(dialog)
+        dialog.draw()
 
     def _show_chat(self):
         input_buf = self.input_buf
@@ -1169,6 +1178,17 @@ class SSHGameProtocol(TerminalAppBase):
         dialog = ChatDialog.make_instance(input_buf, output_buf)
         self.install_dialog(dialog)
         self.new_chat_flag = False
+        self.update_display()
+
+    def _handle_new_chat_message(self):
+        dialog = self.dialog
+        if dialog is None:
+            self.new_chat_flag = True
+            self._draw_player_area()
+            self.set_cursor_end_pos()
+        else:
+            dialog.draw()
+            self.set_cursor_end_pos()
 
     def _show_session_admin(self):
         # Check permission
@@ -1183,11 +1203,14 @@ class SSHGameProtocol(TerminalAppBase):
             dialog = BriefMessageDialog()
             dialog.brief_message = "Only the session administrator can modify game settings."
             self.install_dialog(dialog)
+        dialog.draw()
 
     def receive_signal(self, signal):
         signame, sigvalue = signal
         if signame == 'next-phase':
             self._handle_next_phase() 
+        elif signame == 'chat-message':
+            self._handle_new_chat_message() 
         elif signame == 'shutdown':
             initiator = sigvalue['initiator']
             self._start_shutdown(initiator)

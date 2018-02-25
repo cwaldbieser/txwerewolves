@@ -23,9 +23,29 @@ class TermDialog(object):
     parent = None
     left = None
     top = None
+    _redraw_id = None
     
     def draw(self):
         raise NotImplementedError()
+
+    def schedule_redraw(self):
+        reactor = self.parent().reactor
+        if not self._redraw_id is None and self._redraw_id.active():
+            return
+
+        def _redraw():
+            self.draw()
+            self._redraw_id = None
+
+        self._redraw_id = reactor.callLater(0, _redraw)
+
+    def cancel_redraw(self):
+        redraw_id = self._redraw_id
+        if redraw_id is None:
+            return
+        if redraw_id.active():
+            redraw_id.cancel()
+        self.redraw_id = None
 
     def handle_input(self, key_id, modifier):
         """
@@ -39,7 +59,10 @@ class TermDialog(object):
         return False
 
     def uninstall_dialog(self):
-        self.parent().dialog = None
+        self.cancel_redraw()
+        parent = self.parent()
+        parent.dialog = None
+        parent.update_display()
 
     @property
     def terminal(self):
@@ -155,6 +178,7 @@ class ChatDialog(TermDialog):
         """
         Show chat window.
         """
+        log.msg("dialog.draw() called for {}".format(self.parent().user_id))
         self._compute_coords()
         self._draw_bg()
         self._draw_prompt()
@@ -267,11 +291,13 @@ class ChatDialog(TermDialog):
         terminal = self.terminal
         terminal.cursorPosition(pos, 1)
         self.pos += 1
+        self.schedule_redraw()
 
     def _arrow_left(self):
         pos = self.pos
         pos = max(pos - 1, 0)
         self.pos = pos
+        self.schedule_redraw()
 
     def _backspace(self):
         buf = self.input_buf
@@ -280,6 +306,7 @@ class ChatDialog(TermDialog):
         self.pos = pos
         if len(buf) > 0:
             buf.pop(pos)
+        self.schedule_redraw()
 
     def _send_msg(self):
         input_buf = self.input_buf
@@ -287,6 +314,7 @@ class ChatDialog(TermDialog):
         output_buf.append((self.user_id, ''.join(input_buf)))
         self._reset_input()
         self._signal_dialogs_redraw()
+        self.schedule_redraw()
         
     def handle_input(self, key_id, modifier):
         try:
@@ -312,23 +340,12 @@ class ChatDialog(TermDialog):
     def _signal_dialogs_redraw(self):
         user_id = self.user_id
         user_entry = users.get_user_entry(user_id)
-        session_id = user_entry.joined_id
-        if session_id is None:
-            session_id = user_entry.invited_id
+        session_id = user_entry.joined_id or user_entry.invited_id
         if session_id is None:
             self.uninstall_dialog()
             return
-        session_entry = session.get_entry(session_id)
-        members = set(session_entry.members)
-        members.discard(user_id)
-        fltr = lambda x: x.invited_id == session_id
-        invited_ids = [x.user_id for x in users.generate_user_entries(fltr)]
-        members = members.union(invited_ids)
         signal = ('chat-message', {'sender': self.user_id})
-        for player in members:
-            user_entry = users.get_user_entry(player)
-            avatar = user_entry.avatar
-            avatar.send_app_signal(signal)
+        session.send_signal_to_members(session_id, signal, include_invited=True, exclude=set([user_id]))
  
 
 class SessionAdminDialog(TermDialog):
@@ -475,7 +492,6 @@ class SessionAdminDialog(TermDialog):
         self.role_flags[flag_name] = not self.role_flags[flag_name]
 
     def _reset_game(self):
-        log.msg("Entered _reset_game().")
         role_flags = self._get_role_flags()
         werewolves = self.werewolves
         wg = WerewolfGame
@@ -518,7 +534,6 @@ class SessionAdminDialog(TermDialog):
                 werewolves=werewolves,
                 reset=reset)
             app_protocol.parent().install_application(proto)
-        log.msg("Installed application.")
 
     def handle_input(self, key_id, modifier):
         """
@@ -528,10 +543,8 @@ class SessionAdminDialog(TermDialog):
         """
         try:
             key_ord = ord(key_id)
-            log.msg("key_ord: {}, mod: {}".format(key_ord, modifier))
         except TypeError as ex:
             key_ord = None
-        log.msg("key_id: {}".format(key_id))
         if key_id == 'q' or ord(key_id) == 27:
             self.uninstall_dialog()
         elif key_id in '1234567890':
@@ -607,10 +620,8 @@ class BriefMessageDialog(TermDialog):
         """
         try:
             key_ord = ord(key_id)
-            log.msg("key_ord: {}, mod: {}".format(key_ord, modifier))
         except TypeError as ex:
             key_ord = None
-        log.msg("key_id: {}".format(key_id))
         if key_id == 'q' or ord(key_id) == 27:
             self.uninstall_dialog()
         return True
@@ -684,10 +695,8 @@ class SystemMessageDialog(TermDialog):
         """
         try:
             key_ord = ord(key_id)
-            log.msg("key_ord: {}, mod: {}".format(key_ord, modifier))
         except TypeError as ex:
             key_ord = None
-        log.msg("key_id: {}".format(key_id))
         if key_id in ' q\r' or ord(key_id) == 27:
             self._quit()
         return True

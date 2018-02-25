@@ -39,11 +39,8 @@ class TerminalAdapterProtocol(TerminalProtocol):
     def keystrokeReceived(self, key_id, modifier):
         try:
             key_ord = ord(key_id)
-            log.msg("key_ord: {}, mod: {}".format(key_ord, modifier))
         except TypeError as ex:
             key_ord = None
-        else:
-            log.msg("key_id: {}".format(key_id))
         if key_id == self.CTRL_D:
             self.terminal.loseConnection()
         elif key_id == self.CTRL_X:
