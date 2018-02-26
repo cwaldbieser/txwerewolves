@@ -1263,6 +1263,7 @@ class WebGameProtocol(WebAppBase):
     game = None
     input_buf = None
     new_chat_flag = False
+    phase_info = None
     player_cards = None
     reactor = None
     resource = "werewolves"
@@ -1317,6 +1318,8 @@ class WebGameProtocol(WebAppBase):
         """
         if key == 'actions':
             self._update_client_actions()
+        elif key == 'phase-info':
+            self._update_client_phase_info()
 
     def _update_client_actions(self):
         avatar = self.avatar
@@ -1324,6 +1327,13 @@ class WebGameProtocol(WebAppBase):
         command = {'actions': actions}
         command_string = json.dumps(command)
         avatar.send_event_to_client(command_string)
+
+    def _update_client_phase_info(self):
+        avatar = self.avatar
+        phase_info = self.phase_info
+        command = {'phase-info': phase_info}
+        command_str = json.dumps(command)
+        avatar.send_event_to_client(command_str)
 
     def _handle_next_phase(self):
         self._ready_to_advance = False
@@ -1355,7 +1365,9 @@ class WebGameProtocol(WebAppBase):
             pass
 
     def _init_twilight(self):
-        instructions = ""
+        phase_name = "Twilight"
+        phase_desc = """The village has been invaded by ghastly werewolves!  These bloodthirsty shape changers want to take over the village.  But the villagers know they are weakest at daybreak, and that is when they will strike at their enemy.  In this game, you will take on the role of a villager or a werewolf.  At daybreak, the entire village votes on who lives and who dies.  If a werewolf is slain, the villagers win.  If no werewolves are slain, the werewolf team wins.  If no players are werewolves, the villagers only win if no one dies."""
+        self.phase_info = (phase_name, phase_desc)
         actions = [
             ('Advance Phase', 'Advance to the next phase', 0),
         ]

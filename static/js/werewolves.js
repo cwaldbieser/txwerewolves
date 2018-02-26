@@ -9,6 +9,22 @@ $(document).ready(function() {
             var status = o['status'];
             $("#session_status").text(status);
         }
+        if('phase-info' in o)
+        {
+            var info = o['phase-info'];
+            var title = info[0];
+            var desc = info[1];
+            var info_block = $("#phase-info");
+            info_block.empty();
+            $("<h3>")
+                .text(title)
+                .appendTo(info_block)
+            ;
+            $("<p>")
+                .text(desc)
+                .appendTo(info_block)
+            ; 
+        }
         if('actions' in o)
         {
             $("#actions").empty();
@@ -76,6 +92,7 @@ $(document).ready(function() {
     };
 
     $.get("./werewolves/actions");
+    $.get("./werewolves/phase-info");
 
     $("#chat-send").click(function(e){
         e.preventDefault();

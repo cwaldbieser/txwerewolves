@@ -20,6 +20,7 @@ from twisted.internet import defer
 from twisted.internet.endpoints import serverFromString
 from twisted.python.components import registerAdapter
 from twisted.python import log
+from twisted.web.resource import NoResource
 from twisted.web.server import (
     Session,
     Site,
@@ -115,12 +116,14 @@ class WebResources(object):
             return
         return self._html_files['werewolves']
 
-    @app.route('/werewolves/actions')
-    def werewolves_actions(self, request):
+    @app.route('/werewolves/<update>')
+    def werewolves_update_requests(self, request, update):
         if not check_authenticated(request):
             return
+        if not update in ('actions', 'phase-info'):
+            return NoResource()
         avatar = get_avatar(request)
-        avatar.request_update_from_app('actions')
+        avatar.request_update_from_app(update)
 
     @app.route('/lobby')
     def lobby(self, request):
