@@ -1263,6 +1263,7 @@ class WebGameProtocol(WebAppBase):
     input_buf = None
     new_chat_flag = False
     phase_info = None
+    player_output = None
     reactor = None
     resource = "werewolves"
     user_id = None
@@ -1322,6 +1323,8 @@ class WebGameProtocol(WebAppBase):
             self._update_client_player_info()
         elif key == 'game-info':
             self._update_client_game_info()
+        elif key == 'output':
+            self._update_client_output()
 
     def _update_client_actions(self):
         avatar = self.avatar
@@ -1338,7 +1341,6 @@ class WebGameProtocol(WebAppBase):
         avatar.send_event_to_client(command_str)
 
     def _update_client_player_info(self):
-        log.msg("Entered _update_client_player_info().")
         avatar = self.avatar
         user_id = self.user_id
         player_cards = self.game.player_cards
@@ -1372,12 +1374,25 @@ class WebGameProtocol(WebAppBase):
         avatar = self.avatar
         avatar.send_event_to_client(command_str)
 
+    def _update_client_output(self):
+        avatar = self.avatar
+        user_id = self.user_id
+        output = self.player_output
+        if output is None:
+            output = ""
+        command = {'output': output}
+        command_str = json.dumps(command)
+        avatar.send_event_to_client(command_str)
+
     def _handle_next_phase(self):
         self._ready_to_advance = False
+        self.output = None
         self._init_phase_elements()
-        #self._update_client_phase()
-        #self._update_client_output()
+        self._update_client_player_info()
+        self._update_client_game_info()
         self._update_client_actions()
+        self._update_client_output()
+        self._update_client_phase_info()
 
     def _init_phase_elements(self):
         game = self.game
@@ -1385,7 +1400,7 @@ class WebGameProtocol(WebAppBase):
         if phase == game.PHASE_TWILIGHT:
             self._init_twilight()
         elif phase == game.PHASE_WEREWOLVES:
-            pass
+            self._init_werewolf_phase()
         elif phase == game.PHASE_MINION:
             pass
         elif phase == game.PHASE_SEER:
@@ -1406,12 +1421,32 @@ class WebGameProtocol(WebAppBase):
         phase_desc = """The village has been invaded by ghastly werewolves!  These bloodthirsty shape changers want to take over the village.  But the villagers know they are weakest at daybreak, and that is when they will strike at their enemy.  In this game, you will take on the role of a villager or a werewolf.  At daybreak, the entire village votes on who lives and who dies.  If a werewolf is slain, the villagers win.  If no werewolves are slain, the werewolf team wins.  If no players are werewolves, the villagers only win if no one dies."""
         self.phase_info = (phase_name, phase_desc)
         actions = [
-            ('Advance Phase', 'Advance to the next phase', 0),
+            ('Advance to the next phase', 0, "Waiting for other players ..."),
         ]
         self.actions = actions
         self.handlers = {
             0: self._signal_advance,
         }
+
+    def _init_werewolf_phase(self):
+        phase_name = "Werewolf Phase"
+        phase_desc = """During this phase, all werewolves open their eyes and look at each other."""
+        self.phase_info = (phase_name, phase_desc)
+        actions = [
+            ('Advance to the next phase', 0, "Waiting for other players ..."),
+        ]
+        self.actions = actions
+        self.handlers = {
+            0: self._signal_advance,
+        }
+        game = self.game
+        if not game.is_player_active(self.user_id):
+            self.player_output = "Zzzzzzzzzz ... You are asleep."
+        else:
+            werewolves = game.identify_werewolves()
+            werewolves = list(werewolves)
+            werewolves.sort()
+            self.player_output = "You look around and see other werewolves ...\n{}".format('\n'.join(werewolves))
 
     def _signal_advance(self):
         """

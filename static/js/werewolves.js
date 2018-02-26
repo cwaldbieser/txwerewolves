@@ -73,18 +73,23 @@ $(document).ready(function() {
             for(var i=0; i < actions.length; i++)
             {
                 var entry = actions[i];
-                var label = entry[0];
-                var desc = entry[1];
-                var value = entry[2];
+                var desc = entry[0];
+                var value = entry[1];
+                var selected_message = entry[2];
                 var a = $("<a>")
                     .attr("href", "#")
                     .addClass("list-group-item")
                     .addClass("list-group-item-action")
                     .text(desc)
                     .data("command-value", value)
+                    .data("selected-message", selected_message)
                     .click(function(e){
                         e.preventDefault();
                         $.post("./action", {'command': $(this).data("command-value")})
+                        var myself = $(this);
+                        var selected_message = myself.data("selected-message");
+                        var p = $("<p>").text(selected_message);
+                        $(this).replaceWith(p);
                     })
                     .appendTo($("#actions"));
             }
@@ -111,9 +116,10 @@ $(document).ready(function() {
         {
             var message = o['output'];
             message = message.replace(/\n/g, "<br />");
-            var p = $("<li>")
+            $("#output")
+                .empty()
                 .html(message)
-                .prependTo($("#output"));
+            ;
         }
         if('install-app' in o)
         {
@@ -134,6 +140,7 @@ $(document).ready(function() {
 
     $.get("./werewolves/player-info");
     $.get("./werewolves/game-info");
+    $.get("./werewolves/output");
     $.get("./werewolves/actions");
     $.get("./werewolves/phase-info");
 
