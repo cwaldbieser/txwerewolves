@@ -10,6 +10,7 @@ from txwerewolves.interfaces import (
     ITerminalApplication,
 )
 from txwerewolves import users
+from twisted.python import log
 
 
 class AppBase(object):
@@ -56,6 +57,7 @@ class WebAppBase(AppBase):
     Mixin for web applications.
     """
     dialog_handlers = None
+    handlers = None
 
     def handle_input(self, command):
         """

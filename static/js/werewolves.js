@@ -75,8 +75,7 @@ $(document).ready(function() {
         }
     };
 
-    //$.get("./werewolves/status");
-    //$.get("./werewolves/actions");
+    $.get("./werewolves/actions");
 
     $("#chat-send").click(function(e){
         e.preventDefault();
