@@ -23,9 +23,16 @@
                         Player Secret Information 
                     </div>
                     <div class="card-body">
-                        <div id="player-secrets">
-                            Initializing ...
-                        </div>
+                        <table>
+                            <tr>
+                                <td><span class="badge badge-primary">User ID:</span></td>
+                                <td id="user-id"></td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge badge-primary">Role dealt:</span></td>
+                                <td id="dealt-role"></td>
+                            </tr>
+                        </table>
                     </div>
                 </div>
 
@@ -59,19 +66,21 @@
                 </div>
 
             </div>
+
             <div class="col-sm">
+
                 <div class="card">
                     <div class="card-header">
-                        Messages 
+                        Actions 
                     </div>
                     <div class="card-body">
-                        <div id="messages">
-                            Initializing ...
+                        <div id="actions" class="list-group-item list-group-item-action">
                         </div>
                     </div>
                 </div>
 
             </div>
+
         </div>
 
         <div class="row">
@@ -88,20 +97,6 @@
                         </form>
                         <ul id="chat-output" class="list-group" style="height: 7em; overflow-y: scroll;">
                         </ul>
-                    </div>
-                </div>
-
-            </div>
-
-            <div class="col-sm">
-
-                <div class="card">
-                    <div class="card-header">
-                        Actions 
-                    </div>
-                    <div class="card-body">
-                        <div id="actions" class="list-group-item list-group-item-action">
-                        </div>
                     </div>
                 </div>
 

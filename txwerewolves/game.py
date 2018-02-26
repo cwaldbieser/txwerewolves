@@ -228,7 +228,6 @@ class SSHGameProtocol(TerminalAppBase):
     game = None
     input_buf = None
     new_chat_flag = False
-    player_cards = None
     _ready_to_advance = False
     _shutting_down = False
 
@@ -1264,7 +1263,6 @@ class WebGameProtocol(WebAppBase):
     input_buf = None
     new_chat_flag = False
     phase_info = None
-    player_cards = None
     reactor = None
     resource = "werewolves"
     user_id = None
@@ -1320,6 +1318,8 @@ class WebGameProtocol(WebAppBase):
             self._update_client_actions()
         elif key == 'phase-info':
             self._update_client_phase_info()
+        elif key == 'player-info':
+            self._update_client_player_info()
 
     def _update_client_actions(self):
         avatar = self.avatar
@@ -1332,6 +1332,21 @@ class WebGameProtocol(WebAppBase):
         avatar = self.avatar
         phase_info = self.phase_info
         command = {'phase-info': phase_info}
+        command_str = json.dumps(command)
+        avatar.send_event_to_client(command_str)
+
+    def _update_client_player_info(self):
+        log.msg("Entered _update_client_player_info().")
+        avatar = self.avatar
+        user_id = self.user_id
+        player_cards = self.game.player_cards
+        dealt_card = player_cards[user_id]
+        dealt_card_name = WerewolfGame.get_card_name(dealt_card)
+        player_info = {
+            'user_id': user_id,
+            'card_name': dealt_card_name
+        }
+        command = {'player-info': player_info}
         command_str = json.dumps(command)
         avatar.send_event_to_client(command_str)
 

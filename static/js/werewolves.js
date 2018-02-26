@@ -9,6 +9,18 @@ $(document).ready(function() {
             var status = o['status'];
             $("#session_status").text(status);
         }
+        if('player-info' in o)
+        {
+            var info = o['player-info'];
+            var user_id = info['user_id'];
+            var dealt_role = info['card_name'];
+            $("#user-id")
+                .text(user_id)
+            ;
+            $("#dealt-role")
+                .text(dealt_role)
+            ; 
+        }
         if('phase-info' in o)
         {
             var info = o['phase-info'];
@@ -91,6 +103,7 @@ $(document).ready(function() {
         }
     };
 
+    $.get("./werewolves/player-info");
     $.get("./werewolves/actions");
     $.get("./werewolves/phase-info");
 
