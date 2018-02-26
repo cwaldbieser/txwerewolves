@@ -21,6 +21,35 @@ $(document).ready(function() {
                 .text(dealt_role)
             ; 
         }
+        if('game-info' in o)
+        {
+            var card_counts = o['game-info'];
+            var tbl = $("<table>");
+            tbl.append(
+                $("<tr>")
+                    .append($("<th>").text("Card Name"))
+                    .append($("<th>").text("Count"))
+            );
+            for(var i=0; i < card_counts.length; i++)
+            {
+                var row = card_counts[i];
+                var card_name = row[0];
+                var count = row[1];
+                var tr = $("<tr>").appendTo(tbl);
+                $("<td>")
+                    .text(card_name)
+                    .appendTo(tr)
+                ;
+                $("<td>")
+                    .text("" + count)
+                    .appendTo(tr)
+                ;
+            }
+            $("#game-info")
+                .empty()
+                .append(tbl)
+            ;
+        }        
         if('phase-info' in o)
         {
             var info = o['phase-info'];
@@ -104,6 +133,7 @@ $(document).ready(function() {
     };
 
     $.get("./werewolves/player-info");
+    $.get("./werewolves/game-info");
     $.get("./werewolves/actions");
     $.get("./werewolves/phase-info");
 

@@ -1320,6 +1320,8 @@ class WebGameProtocol(WebAppBase):
             self._update_client_phase_info()
         elif key == 'player-info':
             self._update_client_player_info()
+        elif key == 'game-info':
+            self._update_client_game_info()
 
     def _update_client_actions(self):
         avatar = self.avatar
@@ -1348,6 +1350,26 @@ class WebGameProtocol(WebAppBase):
         }
         command = {'player-info': player_info}
         command_str = json.dumps(command)
+        avatar.send_event_to_client(command_str)
+
+    def _update_client_game_info(self):
+        game = self.game
+        if self.cards is None:
+            self.cards = game.query_cards()
+        cards = self.cards
+        card_counts = collections.Counter()
+        for card in cards:
+            card_name = WerewolfGame.get_card_name(card)
+            card_counts[card_name] += 1
+        card_counts = card_counts.items()
+        card_counts.sort()
+        card_count_table = []
+        for card_name, count in card_counts:
+            row = (card_name, count)
+            card_count_table.append(row)
+        command = {'game-info': card_count_table}
+        command_str = json.dumps(command)
+        avatar = self.avatar
         avatar.send_event_to_client(command_str)
 
     def _handle_next_phase(self):
