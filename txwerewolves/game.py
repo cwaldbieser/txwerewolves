@@ -1439,37 +1439,35 @@ class WebGameProtocol(WebAppBase):
         elif phase == game.PHASE_ENDGAME:
             pass
 
+    def _show_advance_next_phase(self):
+        self.actions = [("Advance to next phase.", 0, "Waiting for other players ...")]
+        self.handlers = {0: self._signal_advance}
+        self._update_client_actions()
+
+    def _show_asleep(self):
+        self.player_output = "Zzzzzzzzzz ... You are asleep."
+        self._update_client_output()
+        self._show_advance_next_phase()
+
     def _init_twilight(self):
         phase_name = "Twilight"
         phase_desc = """The village has been invaded by ghastly werewolves!  These bloodthirsty shape changers want to take over the village.  But the villagers know they are weakest at daybreak, and that is when they will strike at their enemy.  In this game, you will take on the role of a villager or a werewolf.  At daybreak, the entire village votes on who lives and who dies.  If a werewolf is slain, the villagers win.  If no werewolves are slain, the werewolf team wins.  If no players are werewolves, the villagers only win if no one dies."""
         self.phase_info = (phase_name, phase_desc)
-        actions = [
-            ('Advance to the next phase', 0, "Waiting for other players ..."),
-        ]
-        self.actions = actions
-        self.handlers = {
-            0: self._signal_advance,
-        }
+        self._show_advance_next_phase()
 
     def _init_werewolf_phase(self):
         phase_name = "Werewolf Phase"
         phase_desc = """During this phase, all werewolves open their eyes and look at each other."""
         self.phase_info = (phase_name, phase_desc)
-        actions = [
-            ('Advance to the next phase', 0, "Waiting for other players ..."),
-        ]
-        self.actions = actions
-        self.handlers = {
-            0: self._signal_advance,
-        }
         game = self.game
         if not game.is_player_active(self.user_id):
-            self.player_output = "Zzzzzzzzzz ... You are asleep."
-        else:
-            werewolves = game.identify_werewolves()
-            werewolves = list(werewolves)
-            werewolves.sort()
-            self.player_output = "You look around and see other werewolves ...\n{}".format('\n'.join(werewolves))
+            self._show_asleep()
+            return
+        werewolves = game.identify_werewolves()
+        werewolves = list(werewolves)
+        werewolves.sort()
+        self.player_output = "You look around and see other werewolves ...\n{}".format('\n'.join(werewolves))
+        self._show_advance_next_phase()
 
     def _init_minion_phase(self):
         phase_name = "Minion Phase"
@@ -1477,57 +1475,66 @@ class WebGameProtocol(WebAppBase):
             "During this phase, the minion opens his eyes and sees the"
             " werewolves, but they cannot see the minion.")
         self.phase_info = (phase_name, phase_desc)
-        actions = [
-            ('Advance to the next phase', 0, "Waiting for other players ..."),
-        ]
-        self.actions = actions
-        self.handlers = {
-            0: self._signal_advance,
-        }
         game = self.game
         if not game.is_player_active(self.user_id):
-            self.player_output = "Zzzzzzzzzz ... You are asleep."
-        else:
-            werewolves = game.identify_werewolves()
-            werewolves = list(werewolves)
-            werewolves.sort()
-            self.player_output = "You look around and see the werewolves ...\n{}".format('\n'.join(werewolves))
+            self._show_asleep()
+            return
+        werewolves = game.identify_werewolves()
+        werewolves = list(werewolves)
+        werewolves.sort()
+        self.player_output = "You look around and see the werewolves ...\n{}".format('\n'.join(werewolves))
+        self._show_advance_next_phase()
 
     def _init_seer_phase(self):
         phase_name = "Seer Phase"
         phase_desc = '''The seer can use her mystic powers to view 1 player's card, or 2 table cards.'''
         self.phase_info = (phase_name, phase_desc)
         game = self.game
-        if game.is_player_active(self.user_id):
-            player_output = "Use your mystic powers ..."
-            actions = [
-                ('View table cards.', 0, "Power activated."),
-            ]
-            handlers = {
-                0: self._seer_view_table_cards,
-            }
-            session_entry = session.get_entry(game.session_id)
-            members = set(session_entry.members)
-            members.discard(self.user_id)
-            other_player_list = list(members)
+        if not game.is_player_active(self.user_id):
+            self._show_asleep()
+            return
+        if game.power_activated:
+            self._seer_show_power_activated()
+            return
+        player_output = "Use your mystic powers ..."
+        actions = [
+            ('View table cards.', 0, "Power activated."),
+        ]
+        handlers = {
+            0: self._seer_view_table_cards,
+        }
+        session_entry = session.get_entry(game.session_id)
+        members = set(session_entry.members)
+        members.discard(self.user_id)
+        other_player_list = list(members)
 
-            def _make_handler(player):
-                return lambda : self._seer_view_player(player)
+        def _make_handler(player):
+            return lambda : self._seer_view_player(player)
 
-            for n, player in enumerate(other_player_list):
-                key = n + 1
-                actions.append((
-                    "View {}'s card.".format(player),
-                    key,
-                    "Power Activated"))
-                handlers[key] = _make_handler(player)
-        else:
-            player_output = "Zzzzzzzzzz ... You are asleep."
-            actions = ("Advance to next phase.", 0, "Waiting for other players ...")
-            handlers = {0: self._signal_advance}
+        for n, player in enumerate(other_player_list):
+            key = n + 1
+            actions.append((
+                "View {}'s card.".format(player),
+                key,
+                "Power Activated"))
+            handlers[key] = _make_handler(player)
         self.player_output = player_output
         self.actions = actions
         self.handlers = handlers
+        self._update_client_output()
+        self._update_client_actions()
+
+    def _seer_show_power_activated(self):
+        game = self.game
+        if game.seer_viewed_table_cards:
+            card_names = [WerewolfGame.get_card_name(card) for card in game.seer_viewed_table_cards]
+            self.player_output = "Your mystic powers reveal the following cards:\n{}".format('\n'.join(card_names))
+        elif game.seer_viewed_player_card:
+            player, card = game.seer_viewed_player_card
+            card_name = WerewolfGame.get_card_name(card)
+            self.player_output = "Your mystic powers fortell that {} is a {}".format(player, card_name)
+        self._update_client_output()
+        self._show_advance_next_phase()
 
     def _seer_view_table_cards(self):
         game = self.game
@@ -1535,15 +1542,13 @@ class WebGameProtocol(WebAppBase):
         positions = random.sample(all_positions, 2)
         game.seer_viewed_table_cards = game.seer_view_table_cards(*positions)
         game.power_activated = True
-        card_names = [WerewolfGame.get_card_name(card) for card in game.seer_viewed_table_cards]
-        self.player_output = "Your mystic powers reveal the following cards:\n{}".format('\n'.join(card_names))
-        self.actions = [("Advance to next phase.", 0, "Waiting for other players ...")]
-        self.handlers = {0: self._signal_advance}
-        self._update_client_actions()
-        self._update_client_output()
+        self._seer_show_power_activated()
 
     def _seer_view_player(self, player):
-        pass
+        game = self.game
+        game.seer_viewed_player_card = (player, game.seer_view_player_card(player))
+        game.power_activated = True
+        self._seer_show_power_activated()
 
     def _signal_advance(self):
         """
