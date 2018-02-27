@@ -1431,7 +1431,7 @@ class WebGameProtocol(WebAppBase):
         elif phase == game.PHASE_ROBBER:
             self._init_robber_phase() 
         elif phase == game.PHASE_TROUBLEMAKER:
-            pass
+            self._init_troublemaker_phase()
         elif phase == game.PHASE_INSOMNIAC:
             pass
         elif phase == game.PHASE_DAYBREAK:
@@ -1557,7 +1557,6 @@ class WebGameProtocol(WebAppBase):
         self._seer_show_power_activated()
 
     def _init_robber_phase(self):
-        pass
         phase_name = "Robber Phase"
         phase_desc = """The robber may exchange his card with another player's card.  He looks at the card he has robbed, and is now on that team.  The player receiving the robber card is on the village team."""
         self.phase_info = (phase_name, phase_desc)
@@ -1614,6 +1613,85 @@ class WebGameProtocol(WebAppBase):
         card = game.robber_steal_card(player)
         game.robber_stolen_card = (player, card)
         self._robber_show_power_activated()
+
+    def _init_troublemaker_phase(self):
+        phase_name = "Troublemaker Phase"
+        phase_desc = """The troublemaker may exchange the cards of 2 other players without looking at them."""
+        self.phase_info = (phase_name, phase_desc)
+        game = self.game
+        if not game.is_player_active(self.user_id):
+            self._show_asleep()
+            return
+        if game.power_activated:
+            self._seer_show_power_activated()
+            return
+        swapped_players = game.troublemaker_swapped_players
+        first_player = None
+        if swapped_players is None:
+            player_output = "You may cause mischief in the night ..."
+            actions = [
+                ("Don't make trouble.", 0, "Power activated."),
+            ]
+            handlers = {
+                0: self._troublemaker_dont_make_trouble,
+            }
+        elif len(swapped_players) == 1:
+            first_player = swapped_players[0]
+            player_output = "Switch {}'s role with ...".format(first_player)
+            actions = []
+            handlers = {}
+        players = self._list_other_players()
+        players = set(players)
+        players.discard(first_player)
+        players = list(players)
+        players.sort()
+
+        def _make_handler(player):
+            return lambda : self._troublemaker_choose_player(player)
+
+        for n, player in enumerate(players):
+            key = n + 1
+            action = ("Switch {}'s role.".format(player), key, "Selected.")
+            actions.append(action)
+            handler = _make_handler(player)
+            handlers[key] = handler
+        self.player_output = player_output
+        self.actions = actions
+        self.handlers = handlers
+        self._update_client_output()
+        self._update_client_actions()
+
+    def _troublemaker_show_power_activated(self):
+        game = self.game
+        swapped_players = game.troublemaker_swapped_players
+        if swapped_players is None:
+            self.player_output = "You've decided to not make trouble."
+        elif len(swapped_players) == 1:
+            player = swapped_players[0]
+            self.player_output = "Switch {}'s role with ...".format(player)
+        else:
+            self.player_output = "You swapped {}'s role with {}'s role.".format(*swapped_players)
+        self._update_client_output()
+        self._show_advance_next_phase()
+
+    def _troublemaker_dont_make_trouble(self):
+        game = self.game
+        game.power_activated = True
+        self._troublemaker_show_power_activated()
+
+    def _troublemaker_choose_player(self, player):
+        log.msg("Troublemaker chose {}".format(player))
+        game = self.game
+        swapped_players = game.troublemaker_swapped_players
+        if swapped_players is None:
+            log.msg("Case #1")
+            game.troublemaker_swapped_players = (player,)
+            self._init_troublemaker_phase()
+        elif len(swapped_players) == 1:
+            log.msg("Case #2")
+            first_player = swapped_players[0]
+            game.troublemaker_swapped_players = (first_player, player) 
+            self._troublemaker_show_power_activated()
 
     def _signal_advance(self):
         """

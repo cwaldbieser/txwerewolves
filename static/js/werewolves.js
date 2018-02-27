@@ -76,6 +76,7 @@ $(document).ready(function() {
                 var desc = entry[0];
                 var value = entry[1];
                 var selected_message = entry[2];
+                var request_actions = false;
                 var a = $("<a>")
                     .attr("href", "#")
                     .addClass("list-group-item")
