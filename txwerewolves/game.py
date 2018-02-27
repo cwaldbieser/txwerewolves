@@ -1429,7 +1429,7 @@ class WebGameProtocol(WebAppBase):
         elif phase == game.PHASE_SEER:
             self._init_seer_phase()
         elif phase == game.PHASE_ROBBER:
-            pass
+            self._init_robber_phase() 
         elif phase == game.PHASE_TROUBLEMAKER:
             pass
         elif phase == game.PHASE_INSOMNIAC:
@@ -1438,6 +1438,15 @@ class WebGameProtocol(WebAppBase):
             pass
         elif phase == game.PHASE_ENDGAME:
             pass
+
+    def _list_other_players(self):
+        game = self.game
+        session_entry = session.get_entry(game.session_id)
+        members = set(session_entry.members)
+        members.discard(self.user_id)
+        members = list(members)
+        members.sort()
+        return members
 
     def _show_advance_next_phase(self):
         self.actions = [("Advance to next phase.", 0, "Waiting for other players ...")]
@@ -1503,10 +1512,7 @@ class WebGameProtocol(WebAppBase):
         handlers = {
             0: self._seer_view_table_cards,
         }
-        session_entry = session.get_entry(game.session_id)
-        members = set(session_entry.members)
-        members.discard(self.user_id)
-        other_player_list = list(members)
+        other_player_list = self._list_other_players()
 
         def _make_handler(player):
             return lambda : self._seer_view_player(player)
@@ -1549,6 +1555,65 @@ class WebGameProtocol(WebAppBase):
         game.seer_viewed_player_card = (player, game.seer_view_player_card(player))
         game.power_activated = True
         self._seer_show_power_activated()
+
+    def _init_robber_phase(self):
+        pass
+        phase_name = "Robber Phase"
+        phase_desc = """The robber may exchange his card with another player's card.  He looks at the card he has robbed, and is now on that team.  The player receiving the robber card is on the village team."""
+        self.phase_info = (phase_name, phase_desc)
+        game = self.game
+        if not game.is_player_active(self.user_id):
+            self._show_asleep()
+            return
+        if game.power_activated:
+            self._seer_show_power_activated()
+            return
+        player_output = "You may steal another player's role ..."
+        actions = [
+            ("Don't steal.", 0, "Power activated."),
+        ]
+        handlers = {
+            0: self._robber_dont_steal,
+        }
+        players = self._list_other_players()
+
+        def _make_handler(player):
+            return lambda : self._robber_steal_from_player(player)
+
+        for n, player in enumerate(players):
+            key = n + 1
+            action = ("Steal {}'s role.".format(player), key, "Stolen!")
+            actions.append(action)
+            handler = _make_handler(player)
+            handlers[key] = handler
+        self.player_output = player_output
+        self.actions = actions
+        self.handlers = handlers
+        self._update_client_output()
+        self._update_client_actions()
+
+    def _robber_show_power_activated(self):
+        game = self.game
+        if game.robber_stolen_card is None:
+            self.player_output = "So, there *is* honor amongst thieves."
+        else:
+            player, card = game.robber_stolen_card
+            card_name = WerewolfGame.get_card_name(card)
+            self.player_output = "You stole the {} role from {}".format(card_name, player)
+        self._update_client_output()
+        self._show_advance_next_phase()
+
+    def _robber_dont_steal(self):
+        game = self.game
+        game.power_activated = True
+        self._robber_show_power_activated()
+
+    def _robber_steal_from_player(self, player):
+        game = self.game
+        game.power_activated = True
+        card = game.robber_steal_card(player)
+        game.robber_stolen_card = (player, card)
+        self._robber_show_power_activated()
 
     def _signal_advance(self):
         """

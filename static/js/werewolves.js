@@ -89,7 +89,10 @@ $(document).ready(function() {
                         var myself = $(this);
                         var selected_message = myself.data("selected-message");
                         var p = $("<p>").text(selected_message);
-                        $(this).replaceWith(p);
+                        $("#actions")
+                            .empty()
+                            .append(p)
+                        ;
                     })
                     .appendTo($("#actions"));
             }
