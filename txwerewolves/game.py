@@ -35,7 +35,10 @@ from txwerewolves.utils import (
     wrap_paras,
     peek_ahead
 )
-from txwerewolves.werewolf import WerewolfGame
+from txwerewolves.werewolf import (
+    GameSettings,
+    WerewolfGame,
+)
 import six
 from six.moves import (
     zip,
@@ -218,7 +221,6 @@ class HandledWerewolfGame(WerewolfGame):
         self.eliminated = list(most_votes)
         self.eliminate_players(most_votes)
             
-    
 
 class SSHGameProtocol(TerminalAppBase):
     interface.implements(ITerminalApplication)
@@ -1196,7 +1198,16 @@ class SSHGameProtocol(TerminalAppBase):
         owner = session_entry.owner
         if owner == self.user_id:
         # Create dialog.
-            dialog = SessionAdminDialog()
+            session_entry = session.get_entry(self.game.session_id)
+            settings = session_entry.settings
+            if settings is None:
+                roles = set([])
+                roles.add(WerewolfGame.CARD_SEER) 
+                roles.add(WerewolfGame.CARD_ROBBER) 
+                roles.add(WerewolfGame.CARD_TROUBLEMAKER) 
+                settings = GameSettings(roles=roles, werewolves=2)
+                session_entry.settings = settings
+            dialog = SessionAdminDialog.make_dialog(settings)
             self.install_dialog(dialog)
         else:
             dialog = BriefMessageDialog()
@@ -1213,6 +1224,18 @@ class SSHGameProtocol(TerminalAppBase):
         elif signame == 'shutdown':
             initiator = sigvalue['initiator']
             self._start_shutdown(initiator)
+        elif signame == 'reset':
+            self._reset()
+
+    def _reset(self):
+        new_app = self.__class__.make_protocol(
+            user_id=self.user_id,
+            terminal=self.terminal,
+            term_size=self.term_size,
+            parent=self.parent,
+            reactor=self.reactor)
+        avatar = self.avatar
+        avatar.install_application(new_app)
 
     def _start_shutdown(self, initiator):
         parent = self.parent()
@@ -1402,9 +1425,9 @@ class WebGameProtocol(WebAppBase):
         elif phase == game.PHASE_WEREWOLVES:
             self._init_werewolf_phase()
         elif phase == game.PHASE_MINION:
-            pass
+            self._init_minion_phase()
         elif phase == game.PHASE_SEER:
-            pass
+            self._init_seer_phase()
         elif phase == game.PHASE_ROBBER:
             pass
         elif phase == game.PHASE_TROUBLEMAKER:
@@ -1448,6 +1471,80 @@ class WebGameProtocol(WebAppBase):
             werewolves.sort()
             self.player_output = "You look around and see other werewolves ...\n{}".format('\n'.join(werewolves))
 
+    def _init_minion_phase(self):
+        phase_name = "Minion Phase"
+        phase_desc = (
+            "During this phase, the minion opens his eyes and sees the"
+            " werewolves, but they cannot see the minion.")
+        self.phase_info = (phase_name, phase_desc)
+        actions = [
+            ('Advance to the next phase', 0, "Waiting for other players ..."),
+        ]
+        self.actions = actions
+        self.handlers = {
+            0: self._signal_advance,
+        }
+        game = self.game
+        if not game.is_player_active(self.user_id):
+            self.player_output = "Zzzzzzzzzz ... You are asleep."
+        else:
+            werewolves = game.identify_werewolves()
+            werewolves = list(werewolves)
+            werewolves.sort()
+            self.player_output = "You look around and see the werewolves ...\n{}".format('\n'.join(werewolves))
+
+    def _init_seer_phase(self):
+        phase_name = "Seer Phase"
+        phase_desc = '''The seer can use her mystic powers to view 1 player's card, or 2 table cards.'''
+        self.phase_info = (phase_name, phase_desc)
+        game = self.game
+        if game.is_player_active(self.user_id):
+            player_output = "Use your mystic powers ..."
+            actions = [
+                ('View table cards.', 0, "Power activated."),
+            ]
+            handlers = {
+                0: self._seer_view_table_cards,
+            }
+            session_entry = session.get_entry(game.session_id)
+            members = set(session_entry.members)
+            members.discard(self.user_id)
+            other_player_list = list(members)
+
+            def _make_handler(player):
+                return lambda : self._seer_view_player(player)
+
+            for n, player in enumerate(other_player_list):
+                key = n + 1
+                actions.append((
+                    "View {}'s card.".format(player),
+                    key,
+                    "Power Activated"))
+                handlers[key] = _make_handler(player)
+        else:
+            player_output = "Zzzzzzzzzz ... You are asleep."
+            actions = ("Advance to next phase.", 0, "Waiting for other players ...")
+            handlers = {0: self._signal_advance}
+        self.player_output = player_output
+        self.actions = actions
+        self.handlers = handlers
+
+    def _seer_view_table_cards(self):
+        game = self.game
+        all_positions = [0, 1, 2]
+        positions = random.sample(all_positions, 2)
+        game.seer_viewed_table_cards = game.seer_view_table_cards(*positions)
+        game.power_activated = True
+        card_names = [WerewolfGame.get_card_name(card) for card in game.seer_viewed_table_cards]
+        self.player_output = "Your mystic powers reveal the following cards:\n{}".format('\n'.join(card_names))
+        self.actions = [("Advance to next phase.", 0, "Waiting for other players ...")]
+        self.handlers = {0: self._signal_advance}
+        self._update_client_actions()
+        self._update_client_output()
+
+    def _seer_view_player(self, player):
+        pass
+
     def _signal_advance(self):
         """
         Tell the game that this player has signaled it is OK to advance
@@ -1476,6 +1573,14 @@ class WebGameProtocol(WebAppBase):
         elif signame == 'shutdown':
             initiator = value['initiator']
             self._shutdown(initiator)
+        elif signame == 'reset':
+            self._reset()
+
+    def _reset(self):
+        new_app = self.__class__.make_protocol(
+            reactor=self.reactor,
+            user_id=self.user_id)
+        self.avatar.install_application(new_app)
 
     def _handle_new_chat(self):
         user_entry = users.get_user_entry(self.user_id)

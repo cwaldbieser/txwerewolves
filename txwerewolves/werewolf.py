@@ -7,6 +7,12 @@ from automat import MethodicalMachine
 
 
 @attr.attrs
+class GameSettings(object):
+    roles = attr.attrib()
+    werewolves = attr.attrib()
+
+
+@attr.attrs
 class PhaseInfo(object):
     tag = attr.attrib()
     phase = attr.attrib()

@@ -378,6 +378,13 @@ class SessionAdminDialog(TermDialog):
     dlg_title = "Session Admin"
     werewolves = 2
     role_flags = None
+    _settings = None
+
+    @classmethod
+    def make_dialog(klass, settings):
+        instance = klass()
+        instance._settings = settings
+        return instance
     
     def draw(self):
         self._compute_coords()
@@ -385,19 +392,23 @@ class SessionAdminDialog(TermDialog):
         self._draw_title()
         self._draw_instructions()
         self._draw_widgets()
+        self.set_cursor_pos()
 
     def _get_role_flags(self):
         role_flags = self.role_flags
         if role_flags is None:
             role_flags = {}
             self.role_flags = role_flags
-            role_flags['seer'] = True
-            role_flags['robber'] = True
-            role_flags['troublemaker'] = True
-            role_flags['minion'] = False
-            role_flags['insomniac'] = False
-            role_flags['hunter'] = False
-            role_flags['tanner'] = False
+            settings = self._settings
+            roles = settings.roles
+            wg = WerewolfGame
+            role_flags['seer'] = (wg.CARD_SEER in roles)
+            role_flags['robber'] = (wg.CARD_ROBBER in roles)
+            role_flags['troublemaker'] = (wg.CARD_TROUBLEMAKER in roles)
+            role_flags['minion'] = (wg.CARD_MINION in roles)
+            role_flags['insomniac'] = (wg.CARD_INSOMNIAC in roles)
+            role_flags['hunter'] = (wg.CARD_HUNTER in roles)
+            role_flags['tanner'] = (wg.CARD_TANNER in roles)
         return role_flags
 
     def _compute_coords(self):
@@ -531,32 +542,29 @@ class SessionAdminDialog(TermDialog):
         for name, card in roles:
             if role_flags[name]:
                 deck.add(card)
+        self._settings.roles = set(deck)
+        self._settings.werewolves = werewolves
         parent = self.parent()
         user_id = parent.user_id
         make_protocol = parent.__class__.make_protocol
-        user_entry = users.get_user_entry(parent.user_id)
-        session_entry = session.get_entry(user_entry.joined_id)
-        members_set = set(session_entry.members)
-        members_set.discard(user_id)
-        members = [user_id]
-        members.extend(list(members_set))
-        for player in members:
-            if user_id == player:
-                reset = True
-            else:
-                reset = False
-            user_entry = users.get_user_entry(player)
-            app_protocol = user_entry.app_protocol
-            proto = make_protocol(
-                user_id=player,
-                terminal=app_protocol.terminal,
-                term_size=app_protocol.term_size,
-                parent=app_protocol.parent,
-                reactor=app_protocol.reactor,
-                roles=deck,
-                werewolves=werewolves,
-                reset=reset)
-            app_protocol.parent().install_application(proto)
+        user_entry = users.get_user_entry(user_id)
+        app_protocol = user_entry.app_protocol
+        proto = make_protocol(
+            user_id=user_id,
+            terminal=app_protocol.terminal,
+            term_size=app_protocol.term_size,
+            parent=app_protocol.parent,
+            reactor=app_protocol.reactor,
+            roles=deck,
+            werewolves=werewolves,
+            reset=True)
+        session_id = user_entry.joined_id
+        avatar = parent.avatar
+        avatar.install_application(proto)
+        signal = ('reset', {'sender': self.user_id})
+        session.send_signal_to_members(session_id, signal) 
+        self.uninstall_dialog()
+        proto.update_display()
 
     def handle_input(self, key_id, modifier):
         """
@@ -588,7 +596,14 @@ class SessionAdminDialog(TermDialog):
             self._toggle_flag('tanner')
         elif key_ord == 18: # CTRL-R
             self._reset_game()
+        self.schedule_redraw()
         return True
+
+    def set_cursor_pos(self):
+        tw, th = self.parent().term_size
+        terminal = self.terminal
+        terminal.cursorPosition(0, th - 1)
+        return False
 
 
 class BriefMessageDialog(TermDialog):

@@ -26,6 +26,7 @@ class SessionRegistryInfo(object):
     owner = attr.attrib(default=None)
     appstate = attr.attrib(default=None)
     chat_buf = attr.attrib(default=None)
+    settings = attr.attrib(default=None)
 
 
 def create_session():
