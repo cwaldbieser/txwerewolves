@@ -1433,7 +1433,7 @@ class WebGameProtocol(WebAppBase):
         elif phase == game.PHASE_TROUBLEMAKER:
             self._init_troublemaker_phase()
         elif phase == game.PHASE_INSOMNIAC:
-            pass
+            self._init_insomniac_phase()
         elif phase == game.PHASE_DAYBREAK:
             pass
         elif phase == game.PHASE_ENDGAME:
@@ -1692,6 +1692,22 @@ class WebGameProtocol(WebAppBase):
             first_player = swapped_players[0]
             game.troublemaker_swapped_players = (first_player, player) 
             self._troublemaker_show_power_activated()
+
+    def _init_insomniac_phase(self):
+        phase_name = "Insomniac Phase"
+        phase_desc = """The insomniac wakes up in the middle of the night and checks to see if her role has been changed."""
+        self.phase_info = (phase_name, phase_desc)
+        game = self.game
+        if not game.is_player_active(self.user_id):
+            self._show_asleep()
+            return
+        card = game.insomniac_view_card()
+        if card == WerewolfGame.CARD_INSOMNIAC:
+            self.player_output = "Your role has NOT changed."
+        else:
+            card_name = WerewolfGame.get_card_name(card)
+            self.player_output = "Your role has changed to the {} role!".format(card_name)
+        self._show_advance_next_phase()
 
     def _signal_advance(self):
         """
