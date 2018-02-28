@@ -24,12 +24,8 @@ $(document).ready(function() {
         if('game-info' in o)
         {
             var card_counts = o['game-info'];
-            var tbl = $("<table>");
-            tbl.append(
-                $("<tr>")
-                    .append($("<th>").text("Card Name"))
-                    .append($("<th>").text("Count"))
-            );
+            var tbl = $("#game-info-table");
+            tbl.find("tr:gt(0)").remove();
             for(var i=0; i < card_counts.length; i++)
             {
                 var row = card_counts[i];
@@ -45,10 +41,6 @@ $(document).ready(function() {
                     .appendTo(tr)
                 ;
             }
-            $("#game-info")
-                .empty()
-                .append(tbl)
-            ;
         }        
         if('phase-info' in o)
         {
