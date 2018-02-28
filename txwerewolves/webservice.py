@@ -120,7 +120,7 @@ class WebResources(object):
     def werewolves_update_requests(self, request, update):
         if not check_authenticated(request):
             return
-        if not update in ('actions', 'phase-info', 'player-info', 'game-info', 'output'):
+        if not update in ('actions', 'phase-info', 'player-info', 'game-info', 'output', 'request-all'):
             return NoResource()
         avatar = get_avatar(request)
         avatar.request_update_from_app(update)

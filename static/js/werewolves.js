@@ -147,18 +147,12 @@ $(document).ready(function() {
             var winner_text = pgr['winner-text'];
             var player_role_table = pgr['player-role-table'];
             var table_roles = pgr['table-roles'];
-            $("#phase-row").collapse();
+            $("#phase-row").slideUp();
             $("#post-game-row").collapse('show');
             // Winner title.
             $("#winner-heading").text(winner_text);
             // Voting table results.
-            var vote_tbl = $("<table>")
-                .append($("<tr>")
-                    .append($("<th>").text("Player"))
-                    .append($("<th>").text("Eliminated?"))
-                    .append($("<th>").text("Voted For"))
-                )
-            ;
+            var vote_tbl = $("#voting-results");
             for(var i=0; i < voting_table.length; i++)
             {
                 var row = voting_table[i];
@@ -172,16 +166,8 @@ $(document).ready(function() {
                 ;
                 vote_tbl.append(tr);
             }
-            vote_tbl.find("tr:odd").addClass("odd");
-            $("#post-game-results").append(vote_tbl);
             // Player role results.
-            var role_tbl = $("<table>")
-                .append($("<tr>")
-                    .append($("<th>").text("Player"))
-                    .append($("<th>").text("Role Dealt"))
-                    .append($("<th>").text("Final Role"))
-                )
-            ;
+            var role_tbl = $("#player-roles");
             for(var i=0; i < player_role_table.length; i++)
             {
                 var row = player_role_table[i];
@@ -195,15 +181,8 @@ $(document).ready(function() {
                 ;
                 role_tbl.append(tr);
             }
-            role_tbl.find("tr:odd").addClass("odd");
-            $("#post-game-results").append(role_tbl);
             // table roles 
-            var table_roles_tbl = $("<table>")
-                .append($("<tr>")
-                    .append($("<th>").text("Dealt Role"))
-                    .append($("<th>").text("Final Role"))
-                )
-            ;
+            var table_roles_tbl = $("#table-roles");
             for(var i=0; i < table_roles.length; i++)
             {
                 var row = table_roles[i];
@@ -215,16 +194,10 @@ $(document).ready(function() {
                 ;
                 table_roles_tbl.append(tr);
             }
-            table_roles_tbl.find("tr:odd").addClass("odd");
-            $("#post-game-results").append(table_roles_tbl);
         }
     };
 
-    $.get("./werewolves/player-info");
-    $.get("./werewolves/game-info");
-    $.get("./werewolves/output");
-    $.get("./werewolves/actions");
-    $.get("./werewolves/phase-info");
+    $.get("./werewolves/request-all");
 
     $("#chat-send").click(function(e){
         e.preventDefault();

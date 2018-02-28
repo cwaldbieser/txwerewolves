@@ -1348,6 +1348,65 @@ class WebGameProtocol(WebAppBase):
             self._update_client_game_info()
         elif key == 'output':
             self._update_client_output()
+        elif key == 'request-all':
+            self._update_client()
+
+    def _update_client(self):
+            self._update_client_player_info()
+            self._update_client_game_info()
+            self._update_client_phase_info()
+            self._update_client_actions()
+            self._update_client_output()
+            game = self.game
+            if game.phase == game.PHASE_ENDGAME:
+                self._update_client_post_game()
+
+    def _update_client_post_game(self):
+        game = self.game
+        eliminated = set(game.eliminated)
+        pgi = game.post_game_results
+        winner = pgi.winner
+        player_cards = pgi.player_cards
+        orig_player_cards = pgi.orig_player_cards
+        table_cards = pgi.table_cards
+        orig_table_cards = pgi.orig_table_cards
+        players = player_cards.keys()
+        players.sort()
+        votes = game.votes
+        voting_table = []
+        for player in players:
+            is_eliminated = (player in eliminated)
+            voted_for = votes.get(player, "N/A")
+            voting_table.append((player, is_eliminated, voted_for))
+        wg = WerewolfGame
+        if winner == wg.WINNER_VILLAGE:
+            winner_text = "A Village Victory!"
+        elif winner == wg.WINNER_WEREWOLVES:
+            winner_text = "A Werewolf Victory!"
+        elif winner == wg.WINNER_TANNER:
+            winner_text = "A Tanner Victory!"
+        elif winner == wg.WINNER_TANNER_AND_VILLAGE:
+            winner_text = "A Tanner and Village Victory!"
+        elif winner == wg.WINNER_NO_ONE:
+            winner_text = "No One Wins!"
+        player_result_matrix = []
+        for player in players:
+            entry = (
+                player,
+                WerewolfGame.get_card_name(orig_player_cards[player]),
+                WerewolfGame.get_card_name(player_cards[player]))
+            player_result_matrix.append(entry)
+        table_result_matrix = list(zip(
+            [WerewolfGame.get_card_name(c) for c in orig_table_cards],
+            [WerewolfGame.get_card_name(c) for c in table_cards]))
+        event = {'post-game-results': {
+            'voting-table': voting_table,
+            'winner-text': winner_text,
+            'player-role-table': player_result_matrix,
+            'table-roles': table_result_matrix,
+        }} 
+        command_str = json.dumps(event)
+        self.avatar.send_event_to_client(command_str)
 
     def _update_client_actions(self):
         avatar = self.avatar
@@ -1743,56 +1802,12 @@ class WebGameProtocol(WebAppBase):
         phase_name = "Post Game Results"
         phase_desc = """The game is now over.  Time to see who won!"""
         self.phase_info = (phase_name, phase_desc)
-        game = self.game
         self.player_output = ""
         self.actions = []
         self.handlers = {}
         self._update_client_output()
         self._update_client_actions()
-        eliminated = set(game.eliminated)
-        pgi = game.post_game_results
-        winner = pgi.winner
-        player_cards = pgi.player_cards
-        orig_player_cards = pgi.orig_player_cards
-        table_cards = pgi.table_cards
-        orig_table_cards = pgi.orig_table_cards
-        players = player_cards.keys()
-        players.sort()
-        votes = game.votes
-        voting_table = []
-        for player in players:
-            is_eliminated = (player in eliminated)
-            voted_for = votes.get(player, "N/A")
-            voting_table.append((player, is_eliminated, voted_for))
-        wg = WerewolfGame
-        if winner == wg.WINNER_VILLAGE:
-            winner_text = "A Village Victory!"
-        elif winner == wg.WINNER_WEREWOLVES:
-            winner_text = "A Werewolf Victory!"
-        elif winner == wg.WINNER_TANNER:
-            winner_text = "A Tanner Victory!"
-        elif winner == wg.WINNER_TANNER_AND_VILLAGE:
-            winner_text = "A Tanner and Village Victory!"
-        elif winner == wg.WINNER_NO_ONE:
-            winner_text = "No One Wins!"
-        player_result_matrix = []
-        for player in players:
-            entry = (
-                player,
-                WerewolfGame.get_card_name(orig_player_cards[player]),
-                WerewolfGame.get_card_name(player_cards[player]))
-            player_result_matrix.append(entry)
-        table_result_matrix = list(zip(
-            [WerewolfGame.get_card_name(c) for c in orig_table_cards],
-            [WerewolfGame.get_card_name(c) for c in table_cards]))
-        event = {'post-game-results': {
-            'voting-table': voting_table,
-            'winner-text': winner_text,
-            'player-role-table': player_result_matrix,
-            'table-roles': table_result_matrix,
-        }} 
-        command_str = json.dumps(event)
-        self.avatar.send_event_to_client(command_str)
+        self._update_client_post_game()
 
     def _signal_advance(self):
         """
