@@ -1435,9 +1435,9 @@ class WebGameProtocol(WebAppBase):
         elif phase == game.PHASE_INSOMNIAC:
             self._init_insomniac_phase()
         elif phase == game.PHASE_DAYBREAK:
-            pass
+            self._init_daybreak_phase()
         elif phase == game.PHASE_ENDGAME:
-            pass
+            self._init_endgame_phase()
 
     def _list_other_players(self):
         game = self.game
@@ -1708,6 +1708,91 @@ class WebGameProtocol(WebAppBase):
             card_name = WerewolfGame.get_card_name(card)
             self.player_output = "Your role has changed to the {} role!".format(card_name)
         self._show_advance_next_phase()
+
+    def _init_daybreak_phase(self):
+        phase_name = "Daybreak"
+        phase_desc = """It is now daybreak.  Everyone should discuss what happened the night before.  Each player will then have one vote to decide who should be eliminated.  If at least 1 player has more than 1 vote, the player with the most votes is eliminated!"""
+        self.phase_info = (phase_name, phase_desc)
+        game = self.game
+        self.player_output = "Vote to eliminate ..."
+        actions = [('Yourself', 0, 'You voted for yourself!')]
+        handlers = {0: lambda: self._daybreak_vote(self.user_id)}
+        players = self._list_other_players()
+        
+        def _make_handler(player):
+            return lambda: self._daybreak_vote(player)
+
+        for n, player in enumerate(players):
+            key = n + 1
+            actions.append((player, key, 'You voted to eliminate {}.'.format(player)))
+            handlers[key] = _make_handler(player)
+        self.actions = actions
+        self.handlers = handlers
+        self._update_client_output()
+        self._update_client_actions()
+
+    def _daybreak_vote(self, player):
+        game = self.game
+        votes = game.votes
+        user_id = self.user_id
+        votes[user_id] = player
+        log.msg("{} voted to eliminate {}.".format(user_id, player))
+        self._signal_advance()
+
+    def _init_endgame_phase(self):
+        phase_name = "Post Game Results"
+        phase_desc = """The game is now over.  Time to see who won!"""
+        self.phase_info = (phase_name, phase_desc)
+        game = self.game
+        self.player_output = ""
+        self.actions = []
+        self.handlers = {}
+        self._update_client_output()
+        self._update_client_actions()
+        eliminated = set(game.eliminated)
+        pgi = game.post_game_results
+        winner = pgi.winner
+        player_cards = pgi.player_cards
+        orig_player_cards = pgi.orig_player_cards
+        table_cards = pgi.table_cards
+        orig_table_cards = pgi.orig_table_cards
+        players = player_cards.keys()
+        players.sort()
+        votes = game.votes
+        voting_table = []
+        for player in players:
+            is_eliminated = (player in eliminated)
+            voted_for = votes.get(player, "N/A")
+            voting_table.append((player, is_eliminated, voted_for))
+        wg = WerewolfGame
+        if winner == wg.WINNER_VILLAGE:
+            winner_text = "A Village Victory!"
+        elif winner == wg.WINNER_WEREWOLVES:
+            winner_text = "A Werewolf Victory!"
+        elif winner == wg.WINNER_TANNER:
+            winner_text = "A Tanner Victory!"
+        elif winner == wg.WINNER_TANNER_AND_VILLAGE:
+            winner_text = "A Tanner and Village Victory!"
+        elif winner == wg.WINNER_NO_ONE:
+            winner_text = "No One Wins!"
+        player_result_matrix = []
+        for player in players:
+            entry = (
+                player,
+                WerewolfGame.get_card_name(orig_player_cards[player]),
+                WerewolfGame.get_card_name(player_cards[player]))
+            player_result_matrix.append(entry)
+        table_result_matrix = list(zip(
+            [WerewolfGame.get_card_name(c) for c in orig_table_cards],
+            [WerewolfGame.get_card_name(c) for c in table_cards]))
+        event = {'post-game-results': {
+            'voting-table': voting_table,
+            'winner-text': winner_text,
+            'player-role-table': player_result_matrix,
+            'table-roles': table_result_matrix,
+        }} 
+        command_str = json.dumps(event)
+        self.avatar.send_event_to_client(command_str)
 
     def _signal_advance(self):
         """

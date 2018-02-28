@@ -140,6 +140,84 @@ $(document).ready(function() {
             console.log(new_pathname);
             window.location.replace(new_pathname);
         }
+        if('post-game-results' in o)
+        {
+            var pgr = o['post-game-results'];
+            var voting_table = pgr['voting-table'];
+            var winner_text = pgr['winner-text'];
+            var player_role_table = pgr['player-role-table'];
+            var table_roles = pgr['table-roles'];
+            $("#phase-row").collapse();
+            $("#post-game-row").collapse('show');
+            // Winner title.
+            $("#winner-heading").text(winner_text);
+            // Voting table results.
+            var vote_tbl = $("<table>")
+                .append($("<tr>")
+                    .append($("<th>").text("Player"))
+                    .append($("<th>").text("Eliminated?"))
+                    .append($("<th>").text("Voted For"))
+                )
+            ;
+            for(var i=0; i < voting_table.length; i++)
+            {
+                var row = voting_table[i];
+                var player = row[0];
+                var eliminated = row[1];
+                var voted_for = row[2];
+                var tr = $("<tr>")
+                    .append($("<td>").text(player))
+                    .append($("<td>").text(eliminated ? "Y": ""))
+                    .append($("<td>").text(voted_for))
+                ;
+                vote_tbl.append(tr);
+            }
+            vote_tbl.find("tr:odd").addClass("odd");
+            $("#post-game-results").append(vote_tbl);
+            // Player role results.
+            var role_tbl = $("<table>")
+                .append($("<tr>")
+                    .append($("<th>").text("Player"))
+                    .append($("<th>").text("Role Dealt"))
+                    .append($("<th>").text("Final Role"))
+                )
+            ;
+            for(var i=0; i < player_role_table.length; i++)
+            {
+                var row = player_role_table[i];
+                var player = row[0];
+                var dealt_role = row[1];
+                var final_role = row[2];
+                var tr = $("<tr>")
+                    .append($("<td>").text(player))
+                    .append($("<td>").text(dealt_role))
+                    .append($("<td>").text(final_role))
+                ;
+                role_tbl.append(tr);
+            }
+            role_tbl.find("tr:odd").addClass("odd");
+            $("#post-game-results").append(role_tbl);
+            // table roles 
+            var table_roles_tbl = $("<table>")
+                .append($("<tr>")
+                    .append($("<th>").text("Dealt Role"))
+                    .append($("<th>").text("Final Role"))
+                )
+            ;
+            for(var i=0; i < table_roles.length; i++)
+            {
+                var row = table_roles[i];
+                var dealt_role = row[0];
+                var final_role = row[1];
+                var tr = $("<tr>")
+                    .append($("<td>").text(dealt_role))
+                    .append($("<td>").text(final_role))
+                ;
+                table_roles_tbl.append(tr);
+            }
+            table_roles_tbl.find("tr:odd").addClass("odd");
+            $("#post-game-results").append(table_roles_tbl);
+        }
     };
 
     $.get("./werewolves/player-info");
