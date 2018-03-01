@@ -721,7 +721,7 @@ class WebLobbyProtocol(WebAppBase):
         lobby.parent = weakref.ref(parent)
         lobby.pending_invitations = set([])
         lobby.handlers = {}
-        lobby.actions = {}
+        lobby.actions = []
         lobby_machine.handle_unjoined = lobby.handle_unjoined
         lobby_machine.handle_invited = lobby.handle_invited
         lobby_machine.handle_accepted = lobby.handle_accepted
@@ -780,8 +780,8 @@ class WebLobbyProtocol(WebAppBase):
         self.status = 'You are not part of any session.'
         self._update_client_status()
         actions = [
-            ('Invite Players', 'Invite players to join a session.', 0),
-            ('List Players', 'List players in the lobby.', 1),
+            ('Invite players to join a session.', 0, 'Selecting a player ...'),
+            ('List players in the lobby.', 1, 'Players listed.'),
         ]
         self.actions = actions
         self._update_client_actions()
@@ -798,10 +798,10 @@ class WebLobbyProtocol(WebAppBase):
                 user_entry.joined_id)
         self._update_client_status()
         actions = [
-            ('Start', 'Start the session with the current members.', 0),
-            ('Invite', 'Invite another player', 1),
-            ('Joined', 'Show players that have joined the session.', 2),
-            ('Cancel', 'Cancel the session.', 3),
+            ('Start the session with the current members.', 0, 'Session started.'),
+            ('Invite another player', 1, 'Selecting a player ...'),
+            ('Show players that have joined the session.', 2, 'Members listed.'),
+            ('Cancel the session.', 3, 'Session cancelled.'),
         ]
         self.actions = actions
         self._update_client_actions()
@@ -827,8 +827,8 @@ class WebLobbyProtocol(WebAppBase):
         self.status = status
         self._update_client_status()
         actions = [
-            ('Accept', 'Accept invitation to join session.', 0),
-            ('Reject', 'Reject invitation to join session.', 1),
+            ('Accept invitation to join session.', 0, 'Invitation accepted.'),
+            ('Reject invitation to join session.', 1, 'Invitation rejected.'),
         ]
         self.actions = actions
         self._update_client_actions()
@@ -842,9 +842,8 @@ class WebLobbyProtocol(WebAppBase):
         self.status = "Joined session '{}'".format(my_entry.joined_id)
         self._update_client_status()
         actions = [
-            ('Joined', 'List players that have joined the session.', 0),
-            ('Cancel', 'Leave the session.', 1),
-        
+            ('List players that have joined the session.', 0, 'Members listed.'),
+            ('Leave the session.', 1, 'You left the session.'),
         ]
         self.actions = actions
         self._update_client_actions()
@@ -914,10 +913,10 @@ class WebLobbyProtocol(WebAppBase):
             return _invite
 
         for n, player in enumerate(players):
-            actions.append((player, n))
+            actions.append((player, n, ''))
             dialog_handlers[n] = _make_handler(player)
         quit_action = len(actions)
-        actions.append(("Stop inviting players", quit_action))
+        actions.append(("Stop inviting players", quit_action, ''))
         dialog_handlers[quit_action] = self._uninstall_dialog()
         self.dialog_handlers = dialog_handlers
         command = {

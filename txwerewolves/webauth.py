@@ -91,7 +91,6 @@ class WebAvatar(object):
         return app_protocol
 
     def install_application(self, app_protocol):
-        log.msg("install_application(): {}".format(app_protocol))
         entry = users.get_user_entry(self.user_id)
         entry.app_protocol = app_protocol
         data = {'install-app': app_protocol.resource}
@@ -135,7 +134,6 @@ class WebAvatar(object):
         Send `data` to a client browser.  `data` should be a string.
         """
         event_source = self._event_source
-        log.msg("send_event_to_client(): event_source: {}".format(event_source))
         if event_source is None:
             self._event_buffer.appendleft(data)
             return

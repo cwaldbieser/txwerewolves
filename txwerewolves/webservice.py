@@ -83,7 +83,6 @@ class WebResources(object):
     @app.route('/static/', branch=True)
     def static(self, request):
         global static_path
-        log.msg("static_path: {}".format(static_path))
         return File(static_path)
 
     @app.route('/action', methods=['POST'])
@@ -133,7 +132,6 @@ class WebResources(object):
 
     @app.route('/lobby/status')
     def lobby_status(self, request):
-        log.msg("routed to /lobby/status")
         if not check_authenticated(request):
             return
         avatar = get_avatar(request)
@@ -141,7 +139,6 @@ class WebResources(object):
 
     @app.route('/lobby/actions')
     def lobby_actions(self, request):
-        log.msg("routed to /lobby/actions")
         if not check_authenticated(request):
             return
         avatar = get_avatar(request)
@@ -149,7 +146,6 @@ class WebResources(object):
 
     @app.route('/subscribe')
     def subscribe(self, request):
-        log.msg("routed to /subscribe")
         if not check_authenticated(request):
             return
         avatar = get_avatar(request)
@@ -159,14 +155,12 @@ class WebResources(object):
 
     @app.route('/login', methods=['GET', 'POST'])
     def login(self, request):
-        log.msg("Method: {}".format(request.method))
         if request.method == 'GET':
             return self._get_login(request)
         elif request.method == 'POST':
             return self._post_login(request)
 
     def _get_login(self, request):
-        log.msg("request: {}".format(request.__class__))
         return self._html_files['login']
 
     def _post_login(self, request):
@@ -178,7 +172,6 @@ class WebResources(object):
         return d
 
     def _handle_login_success(self, result, request):
-        log.msg("Handle login success.")
         interface, avatar, logout = result
         user_id = avatar.user_id
         info = webauth.ISessionInfo(request.getSession())
@@ -186,7 +179,6 @@ class WebResources(object):
         request.redirect("/lobby")
 
     def _handle_login_fail(self, failure, request):
-        log.msg("Handle failure: {}".format(failure))
         request.redirect("/login")
 
     @app.route("/logout")

@@ -17,13 +17,12 @@ $(document).ready(function() {
             {
                 var entry = actions[i];
                 var label = entry[0];
-                var desc = entry[1];
-                var value = entry[2];
+                var value = entry[1];
                 var a = $("<a>")
                     .attr("href", "#")
                     .addClass("list-group-item")
                     .addClass("list-group-item-action")
-                    .text(desc)
+                    .text(label)
                     .data("command-value", value)
                     .click(function(e){
                         e.preventDefault();

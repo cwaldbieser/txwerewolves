@@ -1273,6 +1273,9 @@ class SSHGameProtocol(TerminalAppBase):
         session_entry = session.get_entry(session_id)
         members = session_entry.members
         members.discard(user_id)
+        if len(members) == 0:
+            session.destroy_entry(session_id)
+            log.msg("Destroyed session {}.".format(session_id))
         avatar = user_entry.avatar
         avatar.init_app_protocol()
 
@@ -1743,11 +1746,9 @@ class WebGameProtocol(WebAppBase):
         game = self.game
         swapped_players = game.troublemaker_swapped_players
         if swapped_players is None:
-            log.msg("Case #1")
             game.troublemaker_swapped_players = (player,)
             self._init_troublemaker_phase()
         elif len(swapped_players) == 1:
-            log.msg("Case #2")
             first_player = swapped_players[0]
             game.troublemaker_swapped_players = (first_player, player) 
             self._troublemaker_show_power_activated()
@@ -1867,10 +1868,15 @@ class WebGameProtocol(WebAppBase):
         user_entry = users.get_user_entry(user_id)
         user_entry.joined_id = None
         user_entry.invited_id = None
+        log.msg("Cleared user_entry session info for {}.".format(user_id))
         session_id = self.game.session_id
         session_entry = session.get_entry(session_id)
         members = session_entry.members
         members.discard(user_id)
+        log.msg("Removed session_entry member {}.".format(user_id))
+        if len(members) == 0:
+            session.destroy_entry(session_id)
+            log.msg("Destroyed session {}.".format(session_id))
         if user_id == initiator:
             return
         msg = "{} has left the game.".format(initiator)
@@ -1881,4 +1887,6 @@ class WebGameProtocol(WebAppBase):
         event_str = json.dumps(event)
         avatar = user_entry.avatar
         avatar.send_event_to_client(event_str)
+        user_entry.app_protocol = None
+        avatar.init_app_protocol()
 
