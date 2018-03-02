@@ -1305,9 +1305,7 @@ class WebGameProtocol(WebAppBase):
     new_chat_flag = False
     phase_info = None
     player_output = None
-    reactor = None
-    resource = "werewolves"
-    user_id = None
+    resource = "/werewolves"
     _ready_to_advance = False
     _shutting_down = False
 

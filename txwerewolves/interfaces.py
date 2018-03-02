@@ -50,6 +50,8 @@ class ITerminalApplication(IApplication):
 
 class IWebApplication(IApplication):
 
+    resource = interface.Attribute("The web resource associated with this application.")
+
     def handle_input(command):
         """
         Parse user input and act on commands.

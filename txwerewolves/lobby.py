@@ -703,10 +703,8 @@ class WebLobbyProtocol(WebAppBase):
     actions = None
     handlers = None
     lobby = None
-    parent = None
     pending_invitations = None
-    reactor = None
-    user_id = None
+    resource = "/lobby"
     status = ""
 
     @classmethod

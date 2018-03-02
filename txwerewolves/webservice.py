@@ -179,7 +179,8 @@ class WebResources(object):
         user_id = avatar.user_id
         info = webauth.ISessionInfo(request.getSession())
         info.user_id = user_id
-        request.redirect("/lobby")
+        resource = avatar.application.resource
+        request.redirect(resource)
 
     def _handle_login_fail(self, failure, request):
         request.redirect("/login")
