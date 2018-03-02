@@ -129,6 +129,12 @@ class WebAvatar(object):
             event = event_buffer.pop()
             self.send_event_to_client(event)
 
+    def _reset_event_source(self, data=None):
+        self._event_source = None
+        self._event_buffer = collections.deque([], 20)
+        if data is not None:
+            self._event_buffer.appendleft(data)
+
     def send_event_to_client(self, data):
         """
         Send `data` to a client browser.  `data` should be a string.
@@ -138,9 +144,17 @@ class WebAvatar(object):
             self._event_buffer.appendleft(data)
             return
         for line in data.split('\n'):
-            event_source.write('data: ' + line + '\r\n')
+            try:
+                event_source.write('data: ' + line + '\r\n')
+            except Exception:
+                self._reset_event_source(data=data)
+                return
             log.msg("Wrote event: {}".format(line))
-        event_source.write('\r\n')
+        try:
+            event_source.write('\r\n')
+        except Exception:
+            self._reset_event_source(data=data)
+            return
         log.msg("Wrote event end.")
 
     def send_app_signal(self, signal):
