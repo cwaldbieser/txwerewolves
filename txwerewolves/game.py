@@ -1750,6 +1750,9 @@ class WebGameProtocol(WebAppBase):
             self._init_troublemaker_phase()
         elif len(swapped_players) == 1:
             first_player = swapped_players[0]
+            log.msg("{} the troublemaker swapped {}'s role with {}'s role.".format(
+                self.user_id, first_player, player))
+            game.troublemaker_switch_cards(first_player, player)
             game.troublemaker_swapped_players = (first_player, player) 
             self._troublemaker_show_power_activated()
 

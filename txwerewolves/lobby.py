@@ -284,7 +284,7 @@ class SSHLobbyProtocol(TerminalAppBase):
         if sig_name == 'chat-message':
             self._handle_new_chat()
             return
-        raise Exception("Unknown signal: {}".format(signal))
+        log.msg("Received unknown signal '{}'.".format(sig_name))
 
     def _handle_new_chat(self):
         if not self.dialog is None:
@@ -750,7 +750,7 @@ class WebLobbyProtocol(WebAppBase):
         if sig_name == 'chat-message':
             self._handle_new_chat()
             return
-        raise Exception("Unknown signal: {}".format(signal))
+        log.msg("Received unknown signal '{}'.".format(sig_name))
 
     def _handle_new_chat(self):
         user_entry = users.get_user_entry(self.user_id)

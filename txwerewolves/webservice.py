@@ -43,10 +43,13 @@ def check_authenticated(request):
 def get_avatar(request):
     """
     Get the user avatar from the request.
+    Return None if no avatar exists.
     """
     info = webauth.ISessionInfo(request.getSession())
     user_id = info.user_id
     entry = users.get_user_entry(user_id)
+    if entry is None:
+        return None
     avatar = entry.avatar
     return avatar
 
@@ -183,6 +186,10 @@ class WebResources(object):
 
     @app.route("/logout")
     def logout(self, request):
+        avatar = get_avatar(request)
+        if not avatar is None:
+            avatar.send_app_signal(('shutdown', {'initiator': avatar.user_id}))
+            avatar.logoff()
         s = request.getSession()
         s.expire()
         request.redirect("/login")

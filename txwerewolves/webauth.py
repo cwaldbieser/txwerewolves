@@ -177,6 +177,18 @@ class WebAvatar(object):
             log.msg("Couldn't send shutdown message to client. {}".format(ex))
         self._event_source = None
 
+    def logoff(self):
+        """
+        Log off the avatar.
+        This destroys both the avatar and the user application state.
+        """
+        user_id = self.user_id
+        user_entry = users.get_user_entry(user_id)
+        user_entry.avatar = None
+        user_entry.app_protocol = None
+        user_entry.joined_id = None
+        user_entry.invited_id = None
+
     def request_update_from_app(self, key):
         """
         Request a client update of a particular kind from the application.
