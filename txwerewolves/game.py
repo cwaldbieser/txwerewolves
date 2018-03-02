@@ -50,6 +50,38 @@ from twisted.conch.insults.text import (
 )
 from zope import interface
 
+def get_game_settings(session_id):
+    """
+    Get the game settings for the session.
+    """
+    session_entry = session.get_entry(session_id)
+    if session_entry is None:
+        return None
+    settings = session_entry.settings
+    if settings is None:
+        roles = set([])
+        roles.add(WerewolfGame.CARD_SEER) 
+        roles.add(WerewolfGame.CARD_ROBBER) 
+        roles.add(WerewolfGame.CARD_TROUBLEMAKER) 
+        settings = GameSettings(roles=roles, werewolves=2)
+        session_entry.settings = settings
+    return settings
+
+def initialize_game(session_entry, **kwds):
+    """
+    Initialize a game for a session.
+    """
+    players = session_entry.members
+    game = HandledWerewolfGame()
+    session_entry.appstate = game
+    game.session_id = session_entry.session_id
+    game.add_players(players)
+    game_settings = get_game_settings(session_entry.session_id)
+    other_roles = kwds.get('roles', set(game_settings.roles))
+    werewolf_count = kwds.get('werewolves', game_settings.werewolves)
+    reactor = kwds['reactor']
+    reactor.callLater(0, game.deal_cards, werewolf_count, other_roles)
+
 
 class HandledWerewolfGame(WerewolfGame):
     PHASE_TWILIGHT = 0
@@ -243,24 +275,7 @@ class SSHGameProtocol(TerminalAppBase):
         entry = users.get_user_entry(instance.user_id)
         session_entry = session.get_entry(entry.joined_id)
         if session_entry.appstate is None or kwds.get('reset', False):
-            players = session_entry.members
-            game = HandledWerewolfGame()
-            session_entry.appstate = game
-            game.session_id = session_entry.session_id
-            game.add_players(players)
-            werewolf_count = kwds.get('werewolves', 2)
-            wg = WerewolfGame
-            other_roles = kwds.get('roles', set([
-                wg.CARD_SEER,
-                wg.CARD_ROBBER,
-                wg.CARD_TROUBLEMAKER,
-                wg.CARD_MINION,
-                wg.CARD_INSOMNIAC,
-                wg.CARD_HUNTER,
-                wg.CARD_TANNER,
-            ]))
-            instance.reactor.callLater(
-                0, game.deal_cards, werewolf_count, other_roles)
+            initialize_game(session_entry, **kwds)
         instance.game = session_entry.appstate
         instance.input_buf = []
         return instance
@@ -1306,24 +1321,7 @@ class WebGameProtocol(WebAppBase):
         entry = users.get_user_entry(instance.user_id)
         session_entry = session.get_entry(entry.joined_id)
         if session_entry.appstate is None or kwds.get('reset', False):
-            players = session_entry.members
-            game = HandledWerewolfGame()
-            session_entry.appstate = game
-            game.session_id = session_entry.session_id
-            game.add_players(players)
-            werewolf_count = kwds.get('werewolves', 2)
-            wg = WerewolfGame
-            other_roles = kwds.get('roles', set([
-                wg.CARD_SEER,
-                wg.CARD_ROBBER,
-                wg.CARD_TROUBLEMAKER,
-                wg.CARD_MINION,
-                wg.CARD_INSOMNIAC,
-                wg.CARD_HUNTER,
-                wg.CARD_TANNER,
-            ]))
-            instance.reactor.callLater(
-                0, game.deal_cards, werewolf_count, other_roles)
+            initialize_game(session_entry, **kwds)
         instance.game = session_entry.appstate
         instance.input_buf = []
         return instance
