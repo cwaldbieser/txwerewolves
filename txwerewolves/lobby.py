@@ -552,8 +552,9 @@ class SSHLobbyProtocol(TerminalAppBase):
         """
         List players.
         """
-        fltr = lambda e: (e.invited_id is None) and (e.joined_id is None)
+        fltr = lambda e: (e.invited_id is None) and (e.joined_id is None) and (not e.app_protocol is None)
         user_ids = [e.user_id for e in users.generate_user_entries(fltr=fltr)]
+        log.msg("_list_players() user_ids: {}".format(user_ids))
         self.output.append("Available Players:\n{}".format('\n'.join(user_ids)))
         self.update_display()
 
@@ -563,7 +564,7 @@ class SSHLobbyProtocol(TerminalAppBase):
         """
         this_player = self.user_id
         my_entry = users.get_user_entry(this_player)
-        fltr = lambda e: (e.invited_id is None) and (e.joined_id is None)
+        fltr = lambda e: (e.invited_id is None) and (e.joined_id is None) and (not e.app_protocol is None)
         players = set([e.user_id for e in users.generate_user_entries(fltr=fltr)])
         players.discard(this_player)
         if len(players) == 0:
@@ -875,7 +876,7 @@ class WebLobbyProtocol(WebAppBase):
         """
         List players.
         """
-        fltr = lambda e: (e.invited_id is None) and (e.joined_id is None)
+        fltr = lambda e: (e.invited_id is None) and (e.joined_id is None) and (not e.app_protocol is None)
         user_ids = [e.user_id for e in users.generate_user_entries(fltr=fltr)]
         msg = "Available Players:\n{}".format('\n'.join(user_ids))
         self._send_output_to_client(msg)

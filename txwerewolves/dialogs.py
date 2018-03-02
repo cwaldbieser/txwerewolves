@@ -877,6 +877,10 @@ class ChoosePlayerDialog(TermDialog):
             my_avatar.send_message("'{}' has already joined a session.".format(player))
             self.uninstall_dialog()
             return
+        if other_entry.app_protocol is None:
+            my_avatar.send_message("'{}' has left the lobby.".format(player))
+            self.uninstall_dialog()
+            return
         other_entry.invited_id = my_entry.joined_id
         other_entry.app_protocol.lobby.receive_invitation()
         my_avatar.send_message("Sent invite to '{}'.".format(player))
