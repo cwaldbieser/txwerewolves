@@ -989,8 +989,10 @@ class SSHGameProtocol(TerminalAppBase):
         frame_w = tw - midway
         session_entry = session.get_entry(game.session_id)
         members = set(session_entry.members)
+        members.discard(user_id)
         players = list(members)
         players.sort()
+        players = [user_id] + players
         commands = {}
         user_id = self.user_id
         for n, player in enumerate(players):
