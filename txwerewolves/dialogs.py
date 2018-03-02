@@ -660,8 +660,7 @@ class BriefMessageDialog(TermDialog):
             key_ord = ord(key_id)
         except TypeError as ex:
             key_ord = None
-        if key_id == 'q' or ord(key_id) == 27:
-            self.uninstall_dialog()
+        self.uninstall_dialog()
         return True
 
 
