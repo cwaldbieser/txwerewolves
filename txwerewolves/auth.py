@@ -38,14 +38,16 @@ class SSHAvatar(ConchUser):
     implements(ISession)
     reactor = None
 
-    def __init__(self, user_id):
-        ConchUser.__init__(self)
-        self.user_id = user_id
-        self.avatar_id = uuid.uuid4().hex
-        self.channelLookup.update({'session': SSHSession})
-        self.terminal = None
-        self.term_size = (80, 24)
-        self.ssh_protocol = None
+    @classmethod
+    def make_instance(klass, user_id, reactor):
+        instance = klass()
+        instance.user_id = user_id
+        instance.reactor = reactor
+        instance.channelLookup.update({'session': SSHSession})
+        instance.terminal = None
+        instance.term_size = (80, 24)
+        instance.ssh_protocol = None
+        return instance
 
     def closed(self):
         pass
@@ -131,11 +133,10 @@ class SSHRealm(object):
     
     def requestAvatar(self, avatarId, mind, *interfaces):
         if IConchUser in interfaces:
-            avatar = SSHAvatar(avatarId)
-            avatar.reactor = self.reactor
             entry = users.register_user(avatarId)
             if entry.avatar is not None:
-                shut_down_avatar(entry.avatar)
+                entry.avatar.shut_down()
+            avatar = SSHAvatar.make_instance(avatarId, self.reactor)
             entry.avatar = avatar
             return (IConchUser, avatar, lambda: None)
         else:

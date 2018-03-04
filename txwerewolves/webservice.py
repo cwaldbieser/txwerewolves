@@ -33,7 +33,7 @@ html_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "src/html")
 
 def check_authenticated(request):
     info = webauth.ISessionInfo(request.getSession())
-    if info.user_id is None:
+    if info.avatar is None:
         log.msg("Not authorized; redirecting ...")
         request.redirect("/login")
         return False
@@ -46,11 +46,8 @@ def get_avatar(request):
     Return None if no avatar exists.
     """
     info = webauth.ISessionInfo(request.getSession())
-    user_id = info.user_id
-    entry = users.get_user_entry(user_id)
-    if entry is None:
-        return None
-    avatar = entry.avatar
+    avatar = info.avatar
+    log.msg("get_avatar(): avatar == `{}`".format(avatar))
     return avatar
 
 
@@ -167,6 +164,7 @@ class WebResources(object):
         return self._html_files['login']
 
     def _post_login(self, request):
+        log.msg("Credentials POSTed.")
         portal = self.portal
         web_req_cred = webauth.WebRequestCredential(request)
         d = portal.login(web_req_cred, None, webauth.IWebUser)
@@ -175,14 +173,17 @@ class WebResources(object):
         return d
 
     def _handle_login_success(self, result, request):
+        log.msg("web login success.")
         interface, avatar, logout = result
-        user_id = avatar.user_id
+        log.msg("avatar: {}".format(avatar))
         info = webauth.ISessionInfo(request.getSession())
-        info.user_id = user_id
+        info.avatar = avatar
+        log.msg("Assigned avatar to session info.")
         resource = avatar.application.resource
         request.redirect(resource)
 
     def _handle_login_fail(self, failure, request):
+        log.msg("web login failure: {}".format(failure))
         request.redirect("/login")
 
     @app.route("/logout")
@@ -191,6 +192,14 @@ class WebResources(object):
         if not avatar is None:
             avatar.send_app_signal(('shutdown', {'initiator': avatar.user_id}))
             avatar.logoff()
+        s = request.getSession()
+        info = webauth.ISessionInfo(s)
+        info.avatar = None
+        s.expire()
+        request.redirect("/login")
+
+    @app.route("/expire")
+    def expire(self, request):
         s = request.getSession()
         s.expire()
         request.redirect("/login")

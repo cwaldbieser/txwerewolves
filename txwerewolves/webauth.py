@@ -11,7 +11,10 @@ from txwerewolves import (
     lobby,
     users,
 )
-from txwerewolves.interfaces import IAvatar
+from txwerewolves.interfaces import (
+    IAvatar,
+    IWebApplication,
+)
 import attr
 import six
 from twisted.cred.checkers import ICredentialsChecker
@@ -55,14 +58,13 @@ class WerewolfWebCredChecker(object):
             # User ID in session?
             session = request.getSession()
             info = ISessionInfo(session)
-            user_id = info.user_id
-            if not user_id is None:
-                return user_id
+            avatar = info.avatar
+            if not avatar is None:
+                return avatar.user_id
             # User ID in request?
             args = request.args
             name = args.get("name", [None])[0]
             if not name is None:
-                info.user_id = name
                 return name
         return defer.fail(UnauthorizedLogin())
                 
@@ -91,6 +93,9 @@ class WebAvatar(object):
         return app_protocol
 
     def install_application(self, app_protocol):
+        if not IWebApplication.providedBy(app_protocol):
+            app_protocol = app_protocol.produce_compatible_application(
+                IWebApplication, parent=self)
         entry = users.get_user_entry(self.user_id)
         entry.app_protocol = app_protocol
         data = {'install-app': app_protocol.resource}
@@ -101,17 +106,23 @@ class WebAvatar(object):
         """
         Initialize the default application.
         """
+        log.msg("WebAvatar initializing app protocol ...")
         user_id = self.user_id
         user_entry = users.get_user_entry(user_id)
         user_entry.avatar = self
         app_protocol = user_entry.app_protocol
         if app_protocol is None:
+            log.msg("User entry has no app protocol-- creating a new one ...")
             app_protocol = lobby.WebLobbyProtocol.make_instance(
                 self.reactor,
                 user_id,
                 self)
-            user_entry.app_protocol = app_protocol
-        app_protocol = user_entry.app_protocol
+        else:
+            log.msg("Producing compatible app ...")
+            app_protocol = app_protocol.produce_compatible_application(
+                IWebApplication, parent=self)
+            log.msg("Produced compatible app.")
+        user_entry.app_protocol = app_protocol
         app_protocol.reactor = self.reactor
         app_protocol.parent = weakref.ref(self)  
 
@@ -163,6 +174,9 @@ class WebAvatar(object):
         Send a signal to the application protocol.
         """
         app_protocol = self.application
+        if app_protocol is None:
+            log.msg("App protocol is none; cannot send signal to app.")
+            return
         app_protocol.receive_signal(signal) 
 
     def send_message(self, msg):
@@ -183,6 +197,7 @@ class WebAvatar(object):
         A new avatar will be attached to the application
         at the same state.
         """
+        log.msg("Called `shut_down()` for {}".format(self))
         o = {'shut-down': 'new avatar connected'}
         msg = json.dumps(o)
         try:
@@ -196,6 +211,7 @@ class WebAvatar(object):
         Log off the avatar.
         This destroys both the avatar and the user application state.
         """
+        log.msg("Called `logoff()` for {}".format(self))
         user_id = self.user_id
         user_entry = users.get_user_entry(user_id)
         user_entry.avatar = None
@@ -227,12 +243,17 @@ class WebRealm(object):
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         if IWebUser in interfaces:
+            log.msg("WebRealm.requestAvatar(): looking up user entry for `{}`.".format(avatarId))
             entry = users.register_user(avatarId)
+            log.msg("WebRealm.requestAvatar(): entry: `{}`.".format(entry))
             avatar = entry.avatar
             if avatar is not None:
+                log.msg("WebRealm.requestAvatar(): Shutting down existing avatar.")
                 avatar.shut_down()
             avatar = WebAvatar.make_instance(avatarId, self.reactor)
+            log.msg("WebRealm.requestAvatar(): Created new web avatar.")
             entry.avatar = avatar
+            log.msg("WebRealm.requestAvatar(): Assinged new web avatar to entry.")
             return (IWebUser, avatar, lambda: None)
         else:
             raise Exception("No supported interfaces found.")
@@ -244,9 +265,9 @@ class ISessionInfo(Interface):
 
 @implementer(ISessionInfo)
 class SessionInfo(object):
-    user_id = None
+    avatar = None
     
     def __init__(self, session):
-        self.user_id = None
+        self.avatar = None
 
 

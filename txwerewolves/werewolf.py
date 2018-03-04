@@ -73,89 +73,104 @@ class WerewolfGame(object):
     # Machine states
     # --------------
 
-    @_machine.state()
+    TOKEN_HAVE_PLAYERS = "have_players"
+    TOKEN_DONT_HAVE_PLAYERS = "dont_have_players"
+    TOKEN_CARDS_DEALT = "cards_dealt"
+    TOKEN_WEREWOLF_PHASE = "werewolf_pahse"
+    TOKEN_MINION_PHASE = "minion_phase"
+    TOKEN_SEER_PHASE = "seer_phase"
+    TOKEN_SEER_POWER_ACTIVATED = "seer_power_activated"
+    TOKEN_ROBBER_PHASE = "robber_phase"
+    TOKEN_ROBBER_POWER_ACTIVATED = "robber_power_activated"
+    TOKEN_TROUBLEMAKER_PHASE = "troublemaker_phase"
+    TOKEN_TROUBLEMAKER_POWER_ACTIVATED = "troublemaker_power_activated"
+    TOKEN_INSOMNIAC_PHASE = "insomniac_phase"
+    TOKEN_DAYBREAK = "daybreak"
+    TOKEN_ENDGAME = "endgame"
+
+    @_machine.state(serialized=TOKEN_HAVE_PLAYERS)
     def have_players(self):
         """
         The game has players configured.
         """
 
-    @_machine.state(initial=True)
+    @_machine.state(serialized=TOKEN_DONT_HAVE_PLAYERS, initial=True)
     def dont_have_players(self):
         """
         The game doesn't have any players set.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_CARDS_DEALT)
     def cards_dealt(self):
         """
         Cards have been dealt to players and the table.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_WEREWOLF_PHASE)
     def werewolf_phase(self):
         """
         Werewolves wake up and look for each other.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_MINION_PHASE)
     def minion_phase(self):
         """
         The minion wakes up and sees the werewolves, but the werewolves
         don't know who the minion is.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_SEER_PHASE)
     def seer_phase(self):
         """
         The seer may look at one player's card or 2 cards from the table.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_SEER_POWER_ACTIVATED)
     def seer_power_activated(self):
         """
         The seer's power has been activated.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_ROBBER_PHASE)
     def robber_phase(self):
         """
         The robber *may* exchange his card with another player's card.
         The robber does *not* perform the night actions of his new card.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_ROBBER_POWER_ACTIVATED)
     def robber_power_activated(self):
         """
         The robber's power has been activated.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_TROUBLEMAKER_PHASE)
     def troublemaker_phase(self):
         """
         The troublemaker *may* exchange the cards of 2 players without looking
         at them.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_TROUBLEMAKER_POWER_ACTIVATED)
     def troublemaker_power_activated(self):
         """
         The troublemaker's power has been activated.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_INSOMNIAC_PHASE)
     def insomniac_phase(self):
         """
         The insomniac wakes up after everyone else to see if her card has
         been changed.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_DAYBREAK)
     def daybreak(self):
         """
         Daybreak.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_ENDGAME)
     def endgame(self):
         """
         Votes are tallied, the results are revealed.

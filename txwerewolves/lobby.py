@@ -47,19 +47,26 @@ class LobbyMachine(object):
     # Protocol states
     # ---------------
 
-    @_machine.state(initial=True)
+    TOKEN_START = "start"
+    TOKEN_UNJOINED = "unjoined"
+    TOKEN_WAITING_FOR_ACCEPTS = "waiting_for_accepts"
+    TOKEN_INVITED = "invited"
+    TOKEN_ACCEPTED = "accepted"
+    TOKEN_SESSION_STARTED = "session_started"
+
+    @_machine.state(serialized=TOKEN_START, initial=True)
     def start(self):
         """
         Initial state.
         """
     
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_UNJOINED)
     def unjoined(self):
         """
         Avatar has not joined a group session yet. 
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_WAITING_FOR_ACCEPTS)
     def waiting_for_accepts(self):
         """
         User has invited others to a session, is waiting for them to accept.
@@ -67,14 +74,14 @@ class LobbyMachine(object):
         May choose to start session, cancelling any outstanding invites.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_INVITED)
     def invited(self):
         """
         User has been invited to a session.
         May accept or reject.
         """
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_ACCEPTED)
     def accepted(self):
         """
         User has accepted invitation to a session.  
@@ -82,7 +89,7 @@ class LobbyMachine(object):
         May still withdraw from invitation at this point.
         """ 
 
-    @_machine.state()
+    @_machine.state(serialized=TOKEN_SESSION_STARTED)
     def session_started(self):
         """
         The session has started.
@@ -208,6 +215,43 @@ class LobbyMachine(object):
     accepted.upon(start_session, enter=session_started, outputs=[_enter_session_started])
     accepted.upon(cancel, enter=unjoined, outputs=[_enter_unjoined])
 
+    # -------------
+    # Serialization
+    # -------------
+    
+    @_machine.serializer()
+    def savestate(self, state):
+        return state
+
+    @_machine.unserializer()
+    def restorestate(self, state):
+        log.msg("Restoring state `{}`.".format(state))
+        self._fire_handler(state)
+        return state
+
+    def _fire_handler(self, state):
+        log.msg("Entered _fire_handler()")
+        if state == self.TOKEN_START:
+            pass        
+        elif state == self.TOKEN_UNJOINED:
+            LobbyMachine._call_handler(self.handle_unjoined)
+            log.msg("fired handle_unjoined().")
+        elif state == self.TOKEN_WAITING_FOR_ACCEPTS:
+            log.msg("about to fire handle_waiting_for_accepts().")
+            LobbyMachine._call_handler(self.handle_waiting_for_accepts)
+            log.msg("fired handle_waiting_for_accepts().")
+        elif state == self.TOKEN_INVITED:
+            LobbyMachine._call_handler(self.handle_invited)
+            log.msg("fired handle_invited().")
+        elif state == self.TOKEN_ACCEPTED:
+            LobbyMachine._call_handler(self.handle_accepted)
+            log.msg("fired handle_accepted().")
+        elif state == self.TOKEN_SESSION_STARTED:
+            LobbyMachine._call_handler(self.handle_session_started)
+            log.msg("fired handle_session_started().")
+        else:
+            raise Exception("Unrecognized state '{}'.".format(state))
+
 
 class SSHLobbyProtocol(TerminalAppBase):
     interface.implements(ITerminalApplication)
@@ -245,6 +289,26 @@ class SSHLobbyProtocol(TerminalAppBase):
         lobby_machine.handle_invited = lobby.handle_invited
         lobby_machine.initialize()
         return lobby
+
+    def produce_compatible_application(self, iface, parent):
+        """
+        Produce an application with state similar to this one, but compatible
+        with interface `iface`.
+        """
+        log.msg("entered produce_compatible_application().")
+        if iface.providedBy(self):
+            log.msg("iface is provided.  Returning self ...")
+            return self
+        if iface == IWebApplication:
+            log.msg("iface is IWebApplication.")
+            app = WebLobbyProtocol.make_instance(
+                self.reactor,
+                self.user_id,
+                parent)
+            log.msg("Created new app.")
+            app.appstate.restorestate(self.lobby.savestate())
+            log.msg("Updated state.")
+            return app
 
     @property
     def appstate(self):
@@ -729,6 +793,27 @@ class WebLobbyProtocol(WebAppBase):
         lobby_machine.handle_invited = lobby.handle_invited
         lobby_machine.initialize()
         return lobby
+
+    def produce_compatible_application(self, iface, parent):
+        """
+        Produce an application with state similar to this one, but compatible
+        with interface `iface`.
+        """
+        log.msg("entered produce_compatible_application().")
+        if iface.providedBy(self):
+            log.msg("iface is provided.  Returning self ...")
+            return self
+        if iface == ITerminalApplication:
+            log.msg("iface is ITerminalApplication.")
+            app = SSHLobbyProtocol.make_instance(
+                self.reactor,
+                parent.terminal,
+                self.user_id,
+                parent)
+            log.msg("Created new app.")
+            app.appstate.restorestate(self.lobby.savestate())
+            log.msg("Updated state.")
+            return app
 
     @property
     def appstate(self):

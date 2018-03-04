@@ -4,6 +4,9 @@ from __future__ import (
     print_function,
 )
 import weakref
+from txwerewolves.interfaces import (
+    ITerminalApplication,
+)
 from txwerewolves import (
     lobby,
     session,
@@ -81,7 +84,10 @@ class TerminalAdapterProtocol(TerminalProtocol):
                 user_id,
                 self
             )
-            entry.app_protocol = app_protocol
+        else:
+            app_protocol = app_protocol.produce_compatible_application(
+                ITerminalApplication, parent=self)
+        entry.app_protocol = app_protocol
         app_protocol = entry.app_protocol
         app_protocol.reactor = self.reactor
         app_protocol.terminal = self.terminal
@@ -99,6 +105,9 @@ class TerminalAdapterProtocol(TerminalProtocol):
         pass
 
     def install_application(self, proto):
+        if not ITerminalApplication.providedBy(proto):
+            proto = proto.produce_compatible_application(
+                ITerminalApplication, parent=self)
         self.app_protocol = proto
         self.terminal.reset()
         self.reactor.callLater(0, proto.update_display)

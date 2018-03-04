@@ -20,6 +20,12 @@ class IApplication(interface.Interface):
         Receive a signal from some other agent in the game.
         """
 
+    def produce_compatible_application(iface, parent):
+        """
+        Produce an application with state similar to this one, but compatible
+        with interface `iface`.
+        """
+
 
 class ITerminalApplication(IApplication):
 

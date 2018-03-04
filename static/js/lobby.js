@@ -84,7 +84,7 @@ $(document).ready(function() {
         if('shut-down' in o)
         {
             var pathname = window.location.pathname;
-            var new_pathname = pathname.substr(0, pathname.lastIndexOf('/')) + 'logout';
+            var new_pathname = pathname.substr(0, pathname.lastIndexOf('/')) + 'expire';
             console.log(new_pathname);
             window.location.replace(new_pathname);
         }
