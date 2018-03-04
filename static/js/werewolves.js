@@ -125,10 +125,10 @@ $(document).ready(function() {
             console.log(new_pathname);
             window.location.replace(new_pathname);
         }
-        if('shutdown' in o)
+        if('shut-down' in o)
         {
             var pathname = window.location.pathname;
-            var new_pathname = pathname.substr(0, pathname.lastIndexOf('/')) + 'lobby';
+            var new_pathname = pathname.substr(0, pathname.lastIndexOf('/')) + 'expire';
             console.log(new_pathname);
             window.location.replace(new_pathname);
         }
@@ -145,6 +145,7 @@ $(document).ready(function() {
             $("#winner-heading").text(winner_text);
             // Voting table results.
             var vote_tbl = $("#voting-results");
+            vote_tbl.find("tr:gt(0)").remove();
             for(var i=0; i < voting_table.length; i++)
             {
                 var row = voting_table[i];
@@ -160,6 +161,7 @@ $(document).ready(function() {
             }
             // Player role results.
             var role_tbl = $("#player-roles");
+            role_tbl.find("tr:gt(0)").remove();
             for(var i=0; i < player_role_table.length; i++)
             {
                 var row = player_role_table[i];
@@ -175,6 +177,7 @@ $(document).ready(function() {
             }
             // table roles 
             var table_roles_tbl = $("#table-roles");
+            table_roles_tbl.find("tr:gt(0)").remove();
             for(var i=0; i < table_roles.length; i++)
             {
                 var row = table_roles[i];

@@ -99,6 +99,7 @@ class HandledWerewolfGame(WerewolfGame):
     wait_list = None
     player_cards = None
     used_roles = None
+    card_list = None
     power_activated = False
     seer_viewed_table_cards = None
     seer_viewed_player_card = None
@@ -118,6 +119,7 @@ class HandledWerewolfGame(WerewolfGame):
         self.player_cards = self.query_player_cards()
         table_cards = self.query_table_cards()
         self.used_roles = frozenset(table_cards + list(self.player_cards.values()))
+        self.card_list = self.query_cards()
         self.set_wait_list()
         self.notify_players()
 
@@ -279,6 +281,27 @@ class SSHGameProtocol(TerminalAppBase):
         instance.game = session_entry.appstate
         instance.input_buf = []
         return instance
+
+    def produce_compatible_application(self, iface, parent):
+        """
+        Produce an application with state similar to this one, but compatible
+        with interface `iface`.
+        """
+        log.msg("entered produce_compatible_application().")
+        if iface.providedBy(self):
+            log.msg("iface is provided.  Returning self ...")
+            return self
+        if iface == IWebApplication:
+            log.msg("iface is IWebApplication.")
+            app = WebGameProtocol.make_protocol(
+                reactor=self.reactor,
+                user_id=self.user_id,
+                parent=parent)
+            signal = ('next-phase', None)
+            app.receive_signal(signal) 
+            log.msg("Created new app.")
+            return app
+        raise Exception("Unable to produce compatible application with interface {}.".format(iface))
 
     @property
     def appstate(self):
@@ -445,7 +468,7 @@ class SSHGameProtocol(TerminalAppBase):
         equator = self._equator
         game = self.game
         if self.cards is None:
-            self.cards = game.query_cards()
+            self.cards = game.card_list
         cards = self.cards
         card_counts = collections.Counter()
         for card in cards:
@@ -1326,6 +1349,29 @@ class WebGameProtocol(WebAppBase):
         instance.input_buf = []
         return instance
 
+    def produce_compatible_application(self, iface, parent):
+        """
+        Produce an application with state similar to this one, but compatible
+        with interface `iface`.
+        """
+        log.msg("entered produce_compatible_application().")
+        if iface.providedBy(self):
+            log.msg("iface is provided.  Returning self ...")
+            return self
+        if iface == ITerminalApplication:
+            log.msg("iface is ITerminalApplication.")
+            app = SSHGameProtocol.make_protocol(
+                reactor=self.reactor,
+                user_id=self.user_id,
+                parent=parent,
+                terminal=parent.terminal,
+                term_size=parent.term_size)
+            signal = ('next-phase', None)
+            app.receive_signal(signal) 
+            log.msg("Created new app.")
+            return app
+        raise Exception("Unable to produce compatible application with interface {}.".format(iface))
+
     @property
     def appstate(self):
         """
@@ -1440,7 +1486,7 @@ class WebGameProtocol(WebAppBase):
     def _update_client_game_info(self):
         game = self.game
         if self.cards is None:
-            self.cards = game.query_cards()
+            self.cards = game.card_list
         cards = self.cards
         card_counts = collections.Counter()
         for card in cards:
@@ -1480,6 +1526,7 @@ class WebGameProtocol(WebAppBase):
     def _init_phase_elements(self):
         game = self.game
         phase = game.phase
+        log.msg("game.phase == {}".format(game.phase))
         if phase == game.PHASE_TWILIGHT:
             self._init_twilight()
         elif phase == game.PHASE_WEREWOLVES:
@@ -1884,7 +1931,7 @@ class WebGameProtocol(WebAppBase):
         payload = {}
         if initiator != user_id:
             payload['message'] = msg
-        event = { 'shutdown': payload } 
+        event = { 'shut-down': payload } 
         event_str = json.dumps(event)
         avatar = user_entry.avatar
         avatar.send_event_to_client(event_str)
