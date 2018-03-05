@@ -22,7 +22,7 @@ $(document).ready(function() {
                 var flag = role_flags[tag];
                 $("#id_" + tag).prop("checked", flag);
             }
-            $("#id_werewolves").val(werewolves);
+            $("#id_ww_count").find("option[value=" + werewolves + "]").prop("selected", true);
         }
         if('player-info' in o)
         {
