@@ -79,6 +79,8 @@ def initialize_game(session_entry, **kwds):
     game_settings = get_game_settings(session_entry.session_id)
     other_roles = kwds.get('roles', set(game_settings.roles))
     werewolf_count = kwds.get('werewolves', game_settings.werewolves)
+    game_settings.roles = other_roles
+    game_settings.werewolves = werewolf_count
     reactor = kwds['reactor']
     reactor.callLater(0, game.deal_cards, werewolf_count, other_roles)
 
@@ -277,6 +279,7 @@ class SSHGameProtocol(TerminalAppBase):
         entry = users.get_user_entry(instance.user_id)
         session_entry = session.get_entry(entry.joined_id)
         if session_entry.appstate is None or kwds.get('reset', False):
+            log.msg("Intializing session appstate ...")
             initialize_game(session_entry, **kwds)
         instance.game = session_entry.appstate
         instance.input_buf = []
@@ -1344,6 +1347,7 @@ class WebGameProtocol(WebAppBase):
         entry = users.get_user_entry(instance.user_id)
         session_entry = session.get_entry(entry.joined_id)
         if session_entry.appstate is None or kwds.get('reset', False):
+            log.msg("Initializing session appstate ...")
             initialize_game(session_entry, **kwds)
         instance.game = session_entry.appstate
         instance.input_buf = []
@@ -1462,6 +1466,8 @@ class WebGameProtocol(WebAppBase):
         avatar = self.avatar
         settings = get_game_settings(self.game.session_id)
         roles = settings.roles
+        log.msg("_update_client_settings()")
+        log.msg("  roles: {}".format(roles))
         role_flags = {}
         role_flags['seer'] = (WerewolfGame.CARD_SEER in roles)
         role_flags['robber'] = (WerewolfGame.CARD_ROBBER in roles)
@@ -1470,6 +1476,7 @@ class WebGameProtocol(WebAppBase):
         role_flags['insomniac'] = (WerewolfGame.CARD_INSOMNIAC in roles)
         role_flags['hunter'] = (WerewolfGame.CARD_HUNTER in roles)
         role_flags['tanner'] = (WerewolfGame.CARD_TANNER in roles)
+        log.msg("  role_flags: {}".format(role_flags))
         settings = dict(roles=role_flags, werewolves=settings.werewolves)
         command = {'settings-info': settings}
         command_string = json.dumps(command)
@@ -1908,6 +1915,44 @@ class WebGameProtocol(WebAppBase):
             self._shutdown(initiator)
         elif signame == 'reset':
             self._reset()
+        elif signame == 'new-settings':
+            self._process_new_settings(value)
+
+    def _process_new_settings(self, settings):
+        # Validate
+        role_flags = settings.get('roles', None)
+        roles = set([])
+        tokens = [
+            (WerewolfGame.CARD_SEER, 'seer'), 
+            (WerewolfGame.CARD_ROBBER, 'robber'), 
+            (WerewolfGame.CARD_TROUBLEMAKER, 'troublemaker'), 
+            (WerewolfGame.CARD_MINION, 'minion'), 
+            (WerewolfGame.CARD_INSOMNIAC, 'insomniac'), 
+            (WerewolfGame.CARD_HUNTER, 'hunter'), 
+            (WerewolfGame.CARD_TANNER, 'tanner'),
+        ]
+        for role, token in tokens:
+            if role_flags.get(token, False):
+                roles.add(role)
+        try:
+            werewolves = int(settings.get('werewolves', 2)) 
+        except TypeError:
+            werewolves = 2
+        werewolves = min(9, werewolves)
+        werewolves = max(1, werewolves)
+        # Create new game.
+        session_id = self.game.session_id
+        session_entry = session.get_entry(session_id)
+        log.msg("Initializing game with roles: {}".format(roles))
+        log.msg("Initializing game with werewolves: {}".format(werewolves))
+        initialize_game(
+            session_entry,
+            roles=roles,
+            werewolves=werewolves,
+            reactor=self.reactor)
+        # Notify other players.
+        signal = ('reset', {'sender': self.user_id})
+        session.send_signal_to_members(session_id, signal) 
 
     def _reset(self):
         new_app = self.__class__.make_protocol(

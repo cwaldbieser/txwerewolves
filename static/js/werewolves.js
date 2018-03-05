@@ -216,5 +216,30 @@ $(document).ready(function() {
         $.post("./chat", {'message': message});
     })
     ;
+
+    $("#id-settings-reset").click(function(e){
+        var tags = ["seer", "robber", "troublemaker", "minion", "insomniac", "hunter", "tanner"];
+        var flags = {};
+        for(var i=0; i < tags.length; i++)
+        {
+            var tag = tags[i];
+            flags[tag] = $("#id_" + tag).prop("checked");
+        }
+        var werewolves = parseInt($("#id_ww_count option:selected").val());
+        console.log(flags);
+        console.log(werewolves);
+        var json_string = JSON.stringify({"roles": flags, "werewolves": werewolves});
+        console.log(json_string);
+        $.post(
+            "./settings", 
+            json_string,
+            function(data, textStatus, jqXHR){
+                console.log("textStatus of settings POST: " + textStatus);
+            },
+            "json"
+        )
+        ;
+    })
+    ;
 });
 

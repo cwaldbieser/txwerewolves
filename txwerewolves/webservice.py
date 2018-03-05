@@ -90,7 +90,17 @@ class WebResources(object):
         if not check_authenticated(request):
             return
         avatar = get_avatar(request)
-        avatar.handle_input(int(request.args.get('command')[0]));
+        avatar.handle_input(int(request.args.get('command')[0]))
+
+    @app.route('/settings', methods=['POST'])
+    def settings(self, request):
+        if not check_authenticated(request):
+            return
+        avatar = get_avatar(request)
+        content = request.content.read().decode("utf-8")
+        log.msg("content: {}".format(content))
+        data = json.loads(content)
+        avatar.send_app_signal(('new-settings', data))
 
     @app.route('/chat', methods=['POST'])
     def chat(self, request):
