@@ -9,6 +9,21 @@ $(document).ready(function() {
             var status = o['status'];
             $("#session_status").text(status);
         }
+        if('settings-info' in o)
+        {
+            var settings = o['settings-info'];
+            var role_flags = settings['roles'];
+            var werewolves = settings['werewolves'];
+            $("#id_settings_link").show();
+            var tags = ["seer", "robber", "troublemaker", "minion", "insomniac", "hunter", "tanner"];
+            for(var i=0; i < tags.length; i++)
+            {
+                var tag = tags[i];
+                var flag = role_flags[tag];
+                $("#id_" + tag).prop("checked", flag);
+            }
+            $("#id_werewolves").val(werewolves);
+        }
         if('player-info' in o)
         {
             var info = o['player-info'];

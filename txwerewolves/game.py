@@ -1407,6 +1407,9 @@ class WebGameProtocol(WebAppBase):
             game = self.game
             if game.phase == game.PHASE_ENDGAME:
                 self._update_client_post_game()
+            session_info = session.get_entry(game.session_id)
+            if self.user_id == session_info.owner:
+                self._update_client_settings()
 
     def _update_client_post_game(self):
         game = self.game
@@ -1454,6 +1457,23 @@ class WebGameProtocol(WebAppBase):
         }} 
         command_str = json.dumps(event)
         self.avatar.send_event_to_client(command_str)
+
+    def _update_client_settings(self):
+        avatar = self.avatar
+        settings = get_game_settings(self.game.session_id)
+        roles = settings.roles
+        role_flags = {}
+        role_flags['seer'] = (WerewolfGame.CARD_SEER in roles)
+        role_flags['robber'] = (WerewolfGame.CARD_ROBBER in roles)
+        role_flags['troublemaker'] = (WerewolfGame.CARD_TROUBLEMAKER in roles)
+        role_flags['minion'] = (WerewolfGame.CARD_MINION in roles)
+        role_flags['insomniac'] = (WerewolfGame.CARD_INSOMNIAC in roles)
+        role_flags['hunter'] = (WerewolfGame.CARD_HUNTER in roles)
+        role_flags['tanner'] = (WerewolfGame.CARD_TANNER in roles)
+        settings = dict(roles=role_flags, werewolves=settings.werewolves)
+        command = {'settings-info': settings}
+        command_string = json.dumps(command)
+        avatar.send_event_to_client(command_string)
 
     def _update_client_actions(self):
         avatar = self.avatar
