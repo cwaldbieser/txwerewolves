@@ -69,7 +69,7 @@ To start the service:
 
     $ cd /path/to/project
     $ export PYTHONPATH=.
-    $ twistd -n werewolves -e tcp:2022
+    $ twistd -n werewolves 
 
 
 To connect an SSH client to the service (assuming a typical OpenSSH command-line client):

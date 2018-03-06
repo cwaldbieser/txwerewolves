@@ -20,10 +20,15 @@ from zope.interface import implements
 
 
 class Options(usage.Options):
+    optFlags = [
+        ('no-ssh', None, 'Disable the SSH service.'),
+        ('no-web', None, 'Disable the web service.'),
+    ]
+
     optParameters = [
         (
             'endpoint', 
-            'e', 
+            's', 
             'tcp:2022', 
             "Endpoint string for SSH interface.  E.g. 'tcp:2022'"
         ),    
@@ -35,6 +40,9 @@ class Options(usage.Options):
         ),    
     ]
 
+    def postOptions(self):
+        if self['no-ssh'] and self['no-web']:
+            raise usage.UsageError("No services enabled.  Quitting.")
 
 
 class MyServiceMaker(object):
@@ -49,14 +57,18 @@ class MyServiceMaker(object):
         """
         Construct a server from a factory.
         """
+        no_ssh = options.get('no-ssh', False)
+        no_web = options.get('no-web', False)
         reactor = twisted.internet.reactor
-        ssh_service = SSHService()
-        ssh_service.endpoint_str = options.get('endpoint', self.ssh_endpoint_str)
-        web_service = WebService.make_instance(reactor)
-        web_service.endpoint_str = options.get('web-endpoint', self.web_endpoint_str)
         root_service = MultiService()
-        ssh_service.setServiceParent(root_service)
-        web_service.setServiceParent(root_service)
+        if not no_ssh:
+            ssh_service = SSHService()
+            ssh_service.endpoint_str = options.get('endpoint', self.ssh_endpoint_str)
+            ssh_service.setServiceParent(root_service)
+        if not no_web:
+            web_service = WebService.make_instance(reactor)
+            web_service.endpoint_str = options.get('web-endpoint', self.web_endpoint_str)
+            web_service.setServiceParent(root_service)
         return root_service
 
 
