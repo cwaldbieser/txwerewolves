@@ -6,6 +6,28 @@ The service supports both authenticated SSH terminal clients as well as
 unauthenticated browser-based web clients.  A single service supports
 both types of clients.
 
+-----------------------
+Installing the Software
+-----------------------
+
+Eventually, I plan to package the software to be distributed via the Python
+Package Index (PyPi).  Until then, clone the source repository and install
+the dependencies via `pip` into a Python virtualenv.
+
+E.g.
+
+.. code:: shell
+
+    $ git clone https://github.com/cwaldbieser/txwerewolves.git
+    $ cd txwerewolves
+    $ mkvirtualenv wolfenv
+    (wolfenv)$ pip install -r requirements.txt
+
+The last command may fail if certain operating system dependencies are not
+satisfied.  Satisfying those dependencies isn't covered here.
+Once the software is packaged on PyPi, the situation could improve a bit if
+*wheels* are made avilable for various platforms.
+
 -------------------------
 SSH Service Configuration
 -------------------------
