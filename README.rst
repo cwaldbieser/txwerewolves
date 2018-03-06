@@ -34,7 +34,7 @@ generated SSH key pair:
     $ mkdir ssh-keys
     $ ckeygen -t rsa -f ssh-keys/ssh_host_rsa_key
 
-To configure authentication for the service, edit `users/user_keys.json`.
+To configure authentication for the SSH service, edit `users/user_keys.json`.
 
 .. code:: json
 
@@ -167,5 +167,16 @@ Roles
   eliminated with him-- the vanquishing of a cursed one allows for some
   collateral casulties.
 
+----------
+Web Client
+----------
 
+You can also play the game using a web browser rather than your terminal.
+Authentication is essentially on the honor system in this case.  The web
+client has a somewhat modified layout, but gameplay is essentially the same.
 
+You can move back and forth between a terminal client and web client, or web
+client to web client, or terminal client to terminal client.  Logging into a
+new client will log you out of any previous client where you are logged in as
+a particular user.
+  
