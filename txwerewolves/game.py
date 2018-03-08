@@ -22,6 +22,7 @@ from txwerewolves.dialogs import (
     SessionAdminDialog,
     SystemMessageDialog,
 )
+from txwerewolves.compat import term_attrib_str
 from txwerewolves import graphics_chars as gchars
 from txwerewolves.interfaces import (
     ITerminalApplication,
@@ -398,9 +399,9 @@ class SSHGameProtocol(TerminalAppBase):
         pos = (tw - len(title)) // 2
         terminal.cursorPosition(pos, 0)
         emca48 = A.bold[
-            -A.bold[gchars.DHBORDER_UP_RIGHT.encode('utf-8')],
+            -A.bold[term_attrib_str(gchars.DHBORDER_UP_RIGHT)],
             " Werewolves! ", 
-            -A.bold[gchars.DHBORDER_UP_LEFT.encode('utf-8')]]
+            -A.bold[term_attrib_str(gchars.DHBORDER_UP_LEFT)]]
         text = assembleFormattedText(emca48)
         terminal.write(text)
         underline = u"{}{}{}".format(
@@ -443,7 +444,7 @@ class SSHGameProtocol(TerminalAppBase):
         row = 3
         terminal.cursorPosition(pos, row)
         truncated_player = player[:10]
-        emca48 = A.bold["Player: ", -A.bold[truncated_player]]
+        emca48 = A.bold["Player: ", -A.bold[term_attrib_str(truncated_player)]]
         text = assembleFormattedText(emca48)
         terminal.write(text)
         row += 1
@@ -477,7 +478,7 @@ class SSHGameProtocol(TerminalAppBase):
         for card in cards:
             card_name = WerewolfGame.get_card_name(card)
             card_counts[card_name] += 1
-        card_counts = card_counts.items()
+        card_counts = list(card_counts.items())
         card_counts.sort()
         col_width = max(len(n) for n, c in card_counts) + 3
         count_width = 3
@@ -1092,7 +1093,7 @@ class SSHGameProtocol(TerminalAppBase):
         orig_player_cards = pgi.orig_player_cards
         table_cards = pgi.table_cards
         orig_table_cards = pgi.orig_table_cards
-        players = player_cards.keys()
+        players = list(player_cards.keys())
         players.sort()
         votes = game.votes
         row += 1

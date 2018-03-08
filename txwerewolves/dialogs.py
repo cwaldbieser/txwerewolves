@@ -10,8 +10,10 @@ from txwerewolves import (
 from txwerewolves.utils import (
     wrap_paras,
 )
+from txwerewolves.compat import term_attrib_str
 from txwerewolves import graphics_chars as gchars
 from txwerewolves.werewolf import WerewolfGame
+import six
 from twisted.conch.insults.text import (
     attributes as A,
     assembleFormattedText,
@@ -773,7 +775,7 @@ class ChoosePlayerDialog(TermDialog):
         msg = textwrap.dedent(u"""\
             {} - Scroll up       {}   - Scroll down
             i - invite player   q - cancel 
-            """).format(gchars.UP_ARROW, gchars.DOWN_ARROW).encode('utf-8')
+            """).format(gchars.UP_ARROW, gchars.DOWN_ARROW).encode('utf-8').decode('utf-8')
         textlines = msg.split("\n")
         termlines = []
         for textline in textlines:
@@ -805,7 +807,7 @@ class ChoosePlayerDialog(TermDialog):
             pos = (tw - len(player)) // 2
             terminal.cursorPosition(pos, row)
             if n == player_pos:
-                player = assembleFormattedText(A.reverseVideo[player])
+                player = assembleFormattedText(A.reverseVideo[term_attrib_str(player)])
             terminal.saveCursor()
             terminal.write(player)
             terminal.restoreCursor()

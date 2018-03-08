@@ -45,7 +45,7 @@ class SSHAvatar(ConchUser):
         instance = klass()
         instance.user_id = user_id
         instance.reactor = reactor
-        instance.channelLookup.update({'session': SSHSession})
+        instance.channelLookup.update({b'session': SSHSession})
         instance.terminal = None
         instance.term_size = (80, 24)
         instance.ssh_protocol = None
@@ -134,6 +134,7 @@ class SSHRealm(object):
     reactor = None
     
     def requestAvatar(self, avatarId, mind, *interfaces):
+        avatarId = avatarId.decode('utf-8')
         if IConchUser in interfaces:
             entry = users.register_user(avatarId)
             if entry.avatar is not None:

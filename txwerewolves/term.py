@@ -40,6 +40,7 @@ class TerminalAdapterProtocol(TerminalProtocol):
         self.init_app_protocol()
 
     def keystrokeReceived(self, key_id, modifier):
+        key_id = key_id.decode('utf-8')
         try:
             key_ord = ord(key_id)
         except TypeError as ex:

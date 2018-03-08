@@ -401,7 +401,7 @@ class WerewolfGame(object):
 
     @_machine.output()
     def _query_cards(self):
-        cards = self._player_cards.values()
+        cards = list(self._player_cards.values())
         cards.extend(self._table_cards)
         random.shuffle(cards)
         return cards 

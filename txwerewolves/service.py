@@ -16,6 +16,7 @@ from twisted.conch.checkers import (
 from twisted.conch.ssh.factory import SSHFactory
 from twisted.conch.ssh.keys import Key
 from twisted.internet import endpoints, reactor
+from twisted.python import log
 
 
 class SSHService(Service):
@@ -63,15 +64,15 @@ class SSHService(Service):
         application logic.
         """
         assert self.realmFactory is not None, "`realmFactory` must not be None!"
-        with open(self.servicePrivateKey) as privateBlobFile:
+        with open(self.servicePrivateKey, "r") as privateBlobFile:
             privateBlob = privateBlobFile.read()
             privateKey = Key.fromString(data=privateBlob)
-        with open(self.servicePublicKey) as publicBlobFile:
+        with open(self.servicePublicKey, "r") as publicBlobFile:
             publicBlob = publicBlobFile.read()
             publicKey = Key.fromString(data=publicBlob)
         factory = SSHFactory()
-        factory.privateKeys = {'ssh-rsa': privateKey}
-        factory.publicKeys = {'ssh-rsa': publicKey}
+        factory.privateKeys = {b'ssh-rsa': privateKey}
+        factory.publicKeys = {b'ssh-rsa': publicKey}
         sshRealm = self.realmFactory()
         sshRealm.reactor = self.reactor
         sshPortal = Portal(sshRealm)
@@ -80,8 +81,8 @@ class SSHService(Service):
             raw_key_map = json.load(f)
         l = []
         for avatar_id, keys in raw_key_map.items():
-            key_objects = [Key.fromString(k) for k in keys]
-            l.append((avatar_id, key_objects))
+            key_objects = [Key.fromString(k.encode('utf-8')) for k in keys]
+            l.append((avatar_id.encode('utf-8'), key_objects))
         key_map = dict(l)
         keydb = InMemorySSHKeyDB(key_map)
         factory.portal.registerChecker(SSHPublicKeyChecker(keydb))
