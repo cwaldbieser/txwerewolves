@@ -1,4 +1,6 @@
 
+from six import unichr
+
 DBORDER_UP_LEFT = unichr(0x2554)
 DBORDER_UP_RIGHT = unichr(0x2557)
 DBORDER_DOWN_LEFT = unichr(0x255A)

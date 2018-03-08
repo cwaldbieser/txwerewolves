@@ -49,6 +49,7 @@ from twisted.conch.insults.text import (
     assembleFormattedText,
 )
 from zope import interface
+from zope.interface.declarations import implementer
 
 def get_game_settings(session_id):
     """
@@ -258,9 +259,8 @@ class HandledWerewolfGame(WerewolfGame):
         self.eliminate_players(most_votes)
             
 
+@implementer(ITerminalApplication)
 class SSHGameProtocol(TerminalAppBase):
-    interface.implements(ITerminalApplication)
-
     cards = None
     commands = None
     game = None
@@ -1323,8 +1323,8 @@ class SSHGameProtocol(TerminalAppBase):
         avatar.init_app_protocol()
 
 
+@implementer(IWebApplication)
 class WebGameProtocol(WebAppBase):
-    interface.implements(IWebApplication)
 
     actions = None
     cards = None

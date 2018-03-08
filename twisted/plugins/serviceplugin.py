@@ -16,7 +16,7 @@ from twisted.plugin import (
     IPlugin,
 )
 from twisted.python import usage
-from zope.interface import implements
+from zope.interface.declarations import implementer
 
 
 class Options(usage.Options):
@@ -45,8 +45,8 @@ class Options(usage.Options):
             raise usage.UsageError("No services enabled.  Quitting.")
 
 
+@implementer(IServiceMaker, IPlugin)
 class MyServiceMaker(object):
-    implements(IServiceMaker, IPlugin)
     description = "Werewolves!"
     tapname = "werewolves"
     options = Options

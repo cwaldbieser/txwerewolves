@@ -13,6 +13,8 @@ from twisted.conch.interfaces import IConchUser, ISession
 from twisted.conch.ssh.session import SSHSession, wrapProtocol
 from twisted.python import log
 from zope.interface import implements
+from zope.interface.declarations import implementer
+
 
 class ServerProtocol2(ServerProtocol):
     """
@@ -26,6 +28,7 @@ class ServerProtocol2(ServerProtocol):
         self.transport.loseConnection()
 
 
+@implementer(ISession)
 class SSHAvatar(ConchUser):
     """
     An instance of this class is created after authentication to connect the
@@ -35,7 +38,6 @@ class SSHAvatar(ConchUser):
     protocol instance (:py:class:`app_proto.SSHApplicationProtocol`) and 
     the underlying SSH session protocol.
     """
-    implements(ISession)
     reactor = None
 
     @classmethod
@@ -127,8 +129,8 @@ class SSHAvatar(ConchUser):
         app_protocol.update_display()
 
 
+@implementer(IRealm)
 class SSHRealm(object):
-    implements(IRealm)
     reactor = None
     
     def requestAvatar(self, avatarId, mind, *interfaces):

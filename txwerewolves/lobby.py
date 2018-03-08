@@ -38,6 +38,7 @@ from twisted.conch.insults.text import (
 from twisted.internet import defer
 from twisted.python import log
 from zope import interface
+from zope.interface.declarations import implementer
 
 
 class LobbyMachine(object):
@@ -253,9 +254,8 @@ class LobbyMachine(object):
             raise Exception("Unrecognized state '{}'.".format(state))
 
 
+@implementer(ITerminalApplication)
 class SSHLobbyProtocol(TerminalAppBase):
-    interface.implements(ITerminalApplication)
-
     commands = None
     instructions = ""
     input_buf = None
@@ -761,9 +761,8 @@ class SSHLobbyProtocol(TerminalAppBase):
         pass
 
 
+@implementer(IWebApplication)
 class WebLobbyProtocol(WebAppBase):
-    interface.implements(IWebApplication)
-
     actions = None
     handlers = None
     lobby = None
