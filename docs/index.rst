@@ -1,9 +1,9 @@
-.. Account Provisioning Notes documentation master file, created by
+.. Werewolves! documentation master file, created by
    sphinx-quickstart on Mon Nov 27 12:49:53 2017.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Account Provisioning Notes's documentation!
+Welcome to txwerewolves' documentation!
 ======================================================
 
 .. toctree::
