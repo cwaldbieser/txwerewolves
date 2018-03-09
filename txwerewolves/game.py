@@ -1425,7 +1425,7 @@ class WebGameProtocol(WebAppBase):
         orig_player_cards = pgi.orig_player_cards
         table_cards = pgi.table_cards
         orig_table_cards = pgi.orig_table_cards
-        players = player_cards.keys()
+        players = list(player_cards.keys())
         players.sort()
         votes = game.votes
         voting_table = []
@@ -1520,7 +1520,7 @@ class WebGameProtocol(WebAppBase):
         for card in cards:
             card_name = WerewolfGame.get_card_name(card)
             card_counts[card_name] += 1
-        card_counts = card_counts.items()
+        card_counts = list(card_counts.items())
         card_counts.sort()
         card_count_table = []
         for card_name, count in card_counts:

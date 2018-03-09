@@ -63,9 +63,9 @@ class WerewolfWebCredChecker(object):
                 return avatar.user_id
             # User ID in request?
             args = request.args
-            name = args.get("name", [None])[0]
+            name = args.get(six.b("name"), [None])[0]
             if not name is None:
-                return name
+                return name.decode('utf-8')
         return defer.fail(UnauthorizedLogin())
                 
 
@@ -132,7 +132,7 @@ class WebAvatar(object):
         client so that Server Sent Events (SSEs) can be sent
         to it in `text/event-stream` format.
         """
-        event_source.setHeader('content-type', 'text/event-stream')
+        event_source.setHeader(b'content-type', b'text/event-stream')
         self._event_source = event_source
         log.msg("Connected event source to avatar.")
         event_buffer = self._event_buffer
@@ -150,20 +150,26 @@ class WebAvatar(object):
         """
         Send `data` to a client browser.  `data` should be a string.
         """
+        log.msg("send_event_to_client()")
         event_source = self._event_source
         if event_source is None:
+            log.msg("event_source is None")
             self._event_buffer.appendleft(data)
             return
+        log.msg("data: {}".format(data))
         for line in data.split('\n'):
+            log.msg("line: {}".format(line))
             try:
-                event_source.write('data: ' + line + '\r\n')
-            except Exception:
+                event_source.write(('data: ' + line + '\r\n').encode('utf-8'))
+            except Exception as ex:
+                log.msg("Oops!  {}".format(ex))
                 self._reset_event_source(data=data)
                 return
             log.msg("Wrote event: {}".format(line))
         try:
-            event_source.write('\r\n')
-        except Exception:
+            event_source.write('\r\n'.encode('utf-8'))
+        except Exception as ex:
+            log.msg("Could not write line end to event source: {}".format(ex))
             self._reset_event_source(data=data)
             return
         log.msg("Wrote event end.")

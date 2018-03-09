@@ -13,6 +13,7 @@ from txwerewolves import (
     webauth,
 )
 from klein import Klein
+import six
 from six.moves import urllib
 from twisted.application.service import Service
 from twisted.cred.portal import Portal
@@ -47,7 +48,7 @@ def get_avatar(request):
     """
     info = webauth.ISessionInfo(request.getSession())
     avatar = info.avatar
-    log.msg("get_avatar(): avatar == `{}`".format(avatar))
+    #log.msg("get_avatar(): avatar == `{}`".format(avatar))
     return avatar
 
 
@@ -90,7 +91,7 @@ class WebResources(object):
         if not check_authenticated(request):
             return
         avatar = get_avatar(request)
-        avatar.handle_input(int(request.args.get('command')[0]))
+        avatar.handle_input(int(request.args.get(b'command')[0]))
 
     @app.route('/settings', methods=['POST'])
     def settings(self, request):
@@ -108,7 +109,8 @@ class WebResources(object):
             return
         avatar = get_avatar(request)
         user_id = avatar.user_id
-        message = request.args.get('message')[0];
+        message = request.args.get(b'message')[0];
+        message = message.decode('utf-8')
         user_entry = users.get_user_entry(user_id)
         session_id = user_entry.joined_id or user_entry.invited_id
         if session_id is None:
@@ -146,6 +148,7 @@ class WebResources(object):
             return
         avatar = get_avatar(request)
         avatar.request_update_from_app('status')
+        log.msg("Requested status.")
 
     @app.route('/lobby/actions')
     def lobby_actions(self, request):
@@ -153,24 +156,32 @@ class WebResources(object):
             return
         avatar = get_avatar(request)
         avatar.request_update_from_app('actions')
+        log.msg("Requested actions.")
 
     @app.route('/subscribe')
     def subscribe(self, request):
+        log.msg("subscribe()")
         if not check_authenticated(request):
             return
+        log.msg("authenticated")
         avatar = get_avatar(request)
+        log.msg("avatar: {}".format(avatar))
         avatar.connect_event_source(request)
         d = defer.Deferred()
+        log.msg("Returning deferred ...")
         return d
 
     @app.route('/login', methods=['GET', 'POST'])
     def login(self, request):
-        if request.method == 'GET':
+        log.msg("login()")
+        log.msg("request.method: {}".format(request.method))
+        if request.method == six.b('GET'):
             return self._get_login(request)
-        elif request.method == 'POST':
+        elif request.method == six.b('POST'):
             return self._post_login(request)
 
     def _get_login(self, request):
+        log.msg("_get_login()")
         return self._html_files['login']
 
     def _post_login(self, request):
