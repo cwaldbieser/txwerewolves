@@ -37,10 +37,10 @@ generated SSH key pair:
 
 .. code:: shell
 
-    $ mkdir ssh-keys
-    $ ckeygen -t rsa -f ssh-keys/ssh_host_rsa_key
+    $ mkdir -p ~/.txwerewolvesrc/ssh_keys
+    $ ckeygen -t rsa -f ~/.txwerewolvesrc/ssh_keys/ssh_host_rsa_key
 
-To configure authentication for the SSH service, edit `users/user_keys.json`.
+To configure authentication for the SSH service, edit `~/.txwerewolvesrc/users/user_keys.json`.
 
 .. code:: json
 
@@ -52,6 +52,12 @@ To configure authentication for the SSH service, edit `users/user_keys.json`.
         "user2": [ "only one pubkey ..." ],
         "user3": [ "etc ..." ]
     }
+
+.. note::
+
+    The location of the SSH service keys and user database can be configured
+    from the command line.  The service will also check in `$HOME/.txwerewolvesrc`
+    and `/etc/txwerewolves` for the sub-directories `users` and `ssh_keys`.
 
 -------------------------
 Web Service Configuration

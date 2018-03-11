@@ -4,4 +4,7 @@
 ssh-keys/
 users/
 dropin.cache
-
+dist/
+txwerewolves.egg-info/
+build/
+txwerewolves/static/test.html

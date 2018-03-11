@@ -1,0 +1,9 @@
+
+# Include the license file
+include LICENSE.txt
+
+# Include the web files
+recursive-include txwerewolves/html *
+recursive-include txwerewolves/static *
+exclude txwerewolves/static/test.html
+

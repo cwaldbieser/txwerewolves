@@ -29,8 +29,8 @@ from twisted.web.server import (
 from twisted.web.static import File
 import werkzeug
 
-static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-html_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "src/html")
+static_path = os.path.join(os.path.dirname(__file__), "static")
+html_dir = os.path.join(os.path.dirname(__file__), "html")
 
 def check_authenticated(request):
     info = webauth.ISessionInfo(request.getSession())
