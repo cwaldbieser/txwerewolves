@@ -10,9 +10,26 @@ both types of clients.
 Installing the Software
 -----------------------
 
-Eventually, I plan to package the software to be distributed via the Python
-Package Index (PyPi).  Until then, clone the source repository and install
-the dependencies via `pip` into a Python virtualenv.
+"""""""""""""""""""""""""""""""""""""""""""""""
+Installing from the Python Package Index (PyPi)
+"""""""""""""""""""""""""""""""""""""""""""""""
+
+**txwerewolves** can be installed from the Python Package Index.  Althought not
+specifically required, I *strongly* recommend installing into a Python virtual
+environment.  I like to use
+`virtualenvwrapper <https://virtualenvwrapper.readthedocs.io/en/latest/>`_ .
+
+.. code:: shell
+
+    $ mkvirtualenv wolfenv
+    (wolfenv)$ pip install txwerewolves
+
+""""""""""""""""""""""""""""""""""
+Installing from cloned Github repo
+""""""""""""""""""""""""""""""""""
+
+Clone the source repository and install the dependencies via `pip` into a Python
+virtualenv.
 
 E.g.
 
@@ -25,8 +42,6 @@ E.g.
 
 The last command may fail if certain operating system dependencies are not
 satisfied.  Satisfying those dependencies isn't covered here.
-Once the software is packaged on PyPi, the situation could improve a bit if
-*wheels* are made avilable for various platforms.
 
 -------------------------
 SSH Service Configuration
@@ -70,6 +85,13 @@ Starting the Service
 --------------------
 
 To start the service:
+
+.. code:: shell
+
+    (wolfenv)$ twistd -n werewolves
+
+When running against a cloned git repo, you need to add the project folder to
+your PYTHONPATH.
 
 .. code:: shell
 
