@@ -4,8 +4,7 @@ Werewolves!
 ===========
 
 Werewolves! is a party game sometimes called "Mafia".  There are many variations.
-This game is a computer network based game based in part on a card game adaption
-of the game.
+Werewolves! is a computer network based xgame based adaption of the game.
 
 The players are randomly assigned roles of either villagers or werewolves.  3 additional
 roles are dealt to the table.
@@ -17,7 +16,7 @@ were dealt a role that she did not receive.
 
 After the discussion, each of the players casts a vote to eliminate a player.  If there is a
 player or players who received more than 1 vote, the players with the most votes
-are eliminated and the actual roles the players now posess are revealed.  If a
+are eliminated and the actual roles the players now possess are revealed.  If a
 werewolf was killed, the village team wins, even if an innocent villager was eliminated,
 too.  The villagers may also win if no one is eliminated and all the werewolves are in
 the middle of the table.
