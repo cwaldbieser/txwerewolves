@@ -14,6 +14,7 @@ Welcome to txwerewolves' documentation!
    intro
    installation
    gameplay
+   technical
 
    glossary
 
