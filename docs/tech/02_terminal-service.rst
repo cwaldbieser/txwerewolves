@@ -39,6 +39,8 @@ Once a connection is made, the :py:class:`~twisted.conch.ssh.factory.SSHFactory`
 creates an instance of :py:class:`twisted.conch.ssh.transport.SSHServerTransport`
 to communicate with the connected client.
 
+.. _terminal-service-avatar:
+
 -----------------------------
 The Terminal Realm and Avatar
 -----------------------------

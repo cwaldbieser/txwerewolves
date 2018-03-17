@@ -7,9 +7,10 @@ The Web Service
 
 The web service for the game is provided by
 :py:class:`txwerewolves.webservice.WebService`.  The service setup is similar
-to the basic setup for :ref:`terminal-service`.  The service entry point is
-:py:meth:`txwerewolves.webservice.WebService.startService`.  A web site is 
-created and a `Twisted endpoint <https://twistedmatrix.com/documents/current/core/howto/endpoints.html>`_
+to the basic setup for the :ref:`terminal service <terminal-service>`.  The
+service entry point is :py:meth:`txwerewolves.webservice.WebService.startService`.
+A web site is created and a
+`Twisted endpoint <https://twistedmatrix.com/documents/current/core/howto/endpoints.html>`_
 is constructed from string description of the host, port, and connection options.  The
 endpoint is made to listen for incoming network events.  It is configured to use
 the web site instance to create a protocol that will communicate with the web
@@ -73,5 +74,33 @@ have the following meanings:
   from the application.  These events are received by JavaScript handlers in
   the client browser that can update the user interface with new information
   or actions to be selected.
+
+--------------
+The Web Avatar
+--------------
+
+The web avatar is is created when a player browses to the `/login` resource of
+the web service.  It triggers any existing avatar to shut itself down.  The
+new avatar replaces the old avatar in the user database for the appropriate
+user entry.  Any existing application will be converted to a similar
+application of the appropriate kind (e.g. a terminal Lobby application will
+be converted to a terminal web application).
+
+Unlike the :ref:`web avatar <terminal-service-avatar>`, the web avatar either
+handles its own requests or forwards them directly to the currently installed
+web application.
+
+---------------------
+Rich Client Interface
+---------------------
+
+Unlike, the :ref:`terminal service <terminal-service>` client, the web client
+is meant to be a web browser.  A web browser has a rich client interface, 
+including its own embedded scripting engine.  Javascript event handlers are
+included in the web pages to handle player input and to provide updates from
+the web service's `/subscribe` resource.  Contrast this with the terminal
+client, which provides a simple interface for producing character output at
+specific coordinates.
+
 
 
