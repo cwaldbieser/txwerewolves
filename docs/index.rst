@@ -14,9 +14,18 @@ Welcome to txwerewolves' documentation!
    intro
    installation
    gameplay
-   technical
 
    glossary
+
+Technical Documentation
+=======================
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+   :glob:
+
+   tech/*
 
 Indices and tables
 ==================
