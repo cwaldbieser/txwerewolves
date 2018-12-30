@@ -37,10 +37,10 @@ E.g.
 
     $ git clone https://github.com/cwaldbieser/txwerewolves.git
     $ cd txwerewolves
-    $ mkvirtualenv wolfenv
-    (wolfenv)$ pip install -r requirements.txt
+    $ pipenv install 
 
-The last command may fail if certain operating system dependencies are not
+The last command uses `pipenv` to install the dependencies in :file:`Pipfile.lock`.
+This command can fail if operating system dependencies are not
 satisfied.  Satisfying those dependencies isn't covered here.
 
 -------------------------
