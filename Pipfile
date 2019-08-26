@@ -12,6 +12,7 @@ six = "*"
 cryptography = "*"
 klein = "*"
 pyasn1 = "*"
+bcrypt = "*"
 
 [requires]
 python_version = "3.6"
