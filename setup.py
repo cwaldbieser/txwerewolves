@@ -127,7 +127,7 @@ setup(
     install_requires=[
         'Automat>=0.6,<1',
         'six>=1.11,<2',
-        'Twisted>=17.9,<18',
+        'Twisted>=19.7.0',
         'cryptography>=2.1.1,<3',
         'pyasn1>=0.3.7,<1',
         'klein>=17.10,<18',
