@@ -39,7 +39,7 @@ setup(
     # For a discussion on single-sourcing the version across setup.py and the
     # project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.6.2',  # Required
+    version='0.6.3',  # Required
 
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
@@ -131,6 +131,7 @@ setup(
         'cryptography>=2.1.1,<3',
         'pyasn1>=0.3.7,<1',
         'klein>=17.10,<18',
+        'bcrypt', # This can be removed when Twisted Conch includes it as a dependency.
     ],  # Optional
 
     python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, <4',
