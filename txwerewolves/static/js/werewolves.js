@@ -207,7 +207,7 @@ $(document).ready(function() {
         }
     };
 
-    $.get("./werewolves/request-all");
+    setTimeout(function(){$.get("./werewolves/request-all");}, 0);
 
     $("#chat-send").click(function(e){
         e.preventDefault();
