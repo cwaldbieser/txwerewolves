@@ -125,16 +125,15 @@ setup(
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        'Automat>=0.6,<1',
-        'six>=1.11,<2',
-        'Twisted>=19.7.0',
+        'six>=1.112',
+        'asn1crypto',
         'cryptography>=2.1.1,<3',
-        'pyasn1>=0.3.7,<1',
-        'klein>=17.10,<18',
+        'pyasn1',
+        'klein>=19',
         'bcrypt', # This can be removed when Twisted Conch includes it as a dependency.
     ],  # Optional
 
-    python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, <4',
+    python_requires='>=3.6, <4',
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
