@@ -127,7 +127,7 @@ setup(
     install_requires=[
         'six>=1.112',
         'asn1crypto',
-        'cryptography>=2.1.1,<3',
+        'cryptography>=2.1.1,<4',
         'pyasn1',
         'klein>=19',
         'bcrypt', # This can be removed when Twisted Conch includes it as a dependency.
