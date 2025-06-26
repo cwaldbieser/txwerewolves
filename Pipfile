@@ -15,4 +15,4 @@ pyasn1 = "*"
 bcrypt = "*"
 
 [requires]
-python_version = "3.6"
+python_version = "3.13"
